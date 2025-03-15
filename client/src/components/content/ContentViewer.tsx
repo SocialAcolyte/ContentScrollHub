@@ -28,6 +28,9 @@ export function ContentViewer({ source }: ContentViewerProps) {
         ...(source && { source })
       });
       const response = await fetch(`/api/contents?${params}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch content');
+      }
       const data = await response.json() as ContentType[];
       return data;
     },
@@ -42,7 +45,7 @@ export function ContentViewer({ source }: ContentViewerProps) {
     observerRef.current = new IntersectionObserver(
       (entries) => {
         if (entries[0].isIntersecting && hasNextPage) {
-          fetchNextPage();
+          void fetchNextPage();
         }
       },
       { threshold: 0.5 }
@@ -51,7 +54,9 @@ export function ContentViewer({ source }: ContentViewerProps) {
     observerRef.current.observe(loadMoreRef.current);
 
     return () => {
-      observerRef.current?.disconnect();
+      if (observerRef.current) {
+        observerRef.current.disconnect();
+      }
     };
   }, [fetchNextPage, hasNextPage]);
 
