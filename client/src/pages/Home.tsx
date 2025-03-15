@@ -7,14 +7,14 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="fixed top-0 left-0 right-0 z-10 bg-background/80 backdrop-blur">
+      <header className="fixed top-0 left-0 right-0 z-10">
         <SourceSelector 
           selectedSource={selectedSource}
           onSourceChange={setSelectedSource}
         />
-      </div>
-      
-      <main className="pt-20 max-w-2xl mx-auto">
+      </header>
+
+      <main className="pt-[72px] pb-8 max-w-2xl mx-auto px-4">
         <ContentViewer source={selectedSource} />
       </main>
     </div>

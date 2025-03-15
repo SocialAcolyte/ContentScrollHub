@@ -21,14 +21,17 @@ export function ContentViewer({ source }: ContentViewerProps) {
     error
   } = useInfiniteQuery({
     queryKey: ["/api/contents", source],
-    queryFn: async ({ pageParam = 1 }) => {
+    initialPageParam: 1,
+    queryFn: async ({ pageParam }) => {
       const params = new URLSearchParams({
         page: String(pageParam),
         ...(source && { source })
       });
-      return fetch(`/api/contents?${params}`).then(res => res.json());
+      const response = await fetch(`/api/contents?${params}`);
+      const data = await response.json() as ContentType[];
+      return data;
     },
-    getNextPageParam: (lastPage, pages) => {
+    getNextPageParam: (lastPage: ContentType[], pages: ContentType[][]) => {
       return lastPage.length === 0 ? undefined : pages.length + 1;
     },
   });
@@ -66,6 +69,14 @@ export function ContentViewer({ source }: ContentViewerProps) {
     return (
       <div className="p-4 text-center text-destructive">
         Error: {error instanceof Error ? error.message : "Failed to load content"}
+      </div>
+    );
+  }
+
+  if (!data || data.pages.every(page => page.length === 0)) {
+    return (
+      <div className="p-4 text-center text-muted-foreground">
+        No content available
       </div>
     );
   }
