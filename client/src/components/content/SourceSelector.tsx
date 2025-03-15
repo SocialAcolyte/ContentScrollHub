@@ -13,18 +13,18 @@ export function SourceSelector({ selectedSource, onSourceChange }: SourceSelecto
   return (
     <div className="w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <ScrollArea className="w-full">
-        <div className="flex space-x-2 p-4 items-center">
+        <div className="flex gap-2 p-3 md:p-4 items-center">
           <Button
             variant={!selectedSource ? "default" : "outline"}
             size="sm"
             className={cn(
-              "flex items-center space-x-2",
+              "flex items-center gap-1 md:gap-2 min-w-fit text-sm md:text-base",
               !selectedSource && "bg-primary text-primary-foreground"
             )}
             onClick={() => onSourceChange(undefined)}
           >
             <Grid3X3Icon className="h-4 w-4" />
-            <span>All Sources</span>
+            <span className="hidden xs:inline">All</span>
           </Button>
 
           {sources.map((source) => {
@@ -35,13 +35,13 @@ export function SourceSelector({ selectedSource, onSourceChange }: SourceSelecto
                 variant={selectedSource === source.id ? "default" : "outline"}
                 size="sm"
                 className={cn(
-                  "flex items-center space-x-2 transition-all",
+                  "flex items-center gap-1 md:gap-2 min-w-fit text-sm md:text-base transition-all",
                   selectedSource === source.id && "bg-primary text-primary-foreground"
                 )}
                 onClick={() => onSourceChange(source.id)}
               >
                 <Icon className="h-4 w-4" />
-                <span>{source.name}</span>
+                <span className="hidden xs:inline">{source.name}</span>
               </Button>
             );
           })}

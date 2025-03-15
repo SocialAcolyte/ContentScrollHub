@@ -10,8 +10,10 @@ type ContentCardProps = {
 export function ContentCard({ content, className }: ContentCardProps) {
   return (
     <div className={cn(
-      "relative w-full aspect-[9/16] overflow-hidden",
-      "bg-muted rounded-lg",
+      "relative w-full overflow-hidden",
+      // Mobile-optimized aspect ratio
+      "aspect-square md:aspect-[3/4] lg:aspect-[9/16]",
+      "bg-muted rounded-lg shadow-lg",
       className
     )}>
       {content.thumbnail ? (
@@ -26,7 +28,7 @@ export function ContentCard({ content, className }: ContentCardProps) {
           <span className="text-muted-foreground">No preview available</span>
         </div>
       )}
-      
+
       <ContentOverlay content={content} />
     </div>
   );

@@ -60,43 +60,111 @@ export async function fetchWikipediaContent(): Promise<InsertContent[]> {
 }
 
 export async function fetchGoodreadsContent(): Promise<InsertContent[]> {
-  // Note: Goodreads API requires authentication and is being deprecated
-  // This is a placeholder implementation
-  return [];
-}
-
-export async function fetchOpenLibraryContent(): Promise<InsertContent[]> {
   try {
+    // Using Goodreads public RSS feed since the API is deprecated
     const response = await axios.get(
-      "https://openlibrary.org/subjects/science.json?limit=10"
+      "https://www.goodreads.com/review/recent_reviews.xml",
+      {
+        params: {
+          format: "xml",
+        },
+      }
     );
-    
-    return response.data.works.map((work: any) => ({
-      sourceId: work.key,
-      source: "openlibrary",
-      title: work.title,
-      excerpt: work.excerpt,
-      thumbnail: `https://covers.openlibrary.org/b/id/${work.cover_id}-L.jpg`,
-      metadata: { key: work.key },
-      url: `https://openlibrary.org${work.key}`,
+
+    // Parse XML response (simplified for example)
+    // In a real implementation, use a proper XML parser
+    const reviews = []; // Parse XML here
+    return reviews.map(review => ({
+      sourceId: review.id,
+      source: "goodreads",
+      title: review.book.title,
+      excerpt: review.body,
+      thumbnail: review.book.image_url,
+      metadata: {
+        author: review.book.author,
+        rating: review.rating
+      },
+      url: review.url
     }));
   } catch (error) {
-    console.error("Error fetching OpenLibrary content:", error);
+    console.error("Error fetching Goodreads content:", error);
     return [];
   }
 }
 
-export async function fetchArxivContent(): Promise<InsertContent[]> {
+export async function fetchArXivContent(): Promise<InsertContent[]> {
   try {
     const response = await axios.get(
-      "http://export.arxiv.org/api/query?search_query=all:physics&start=0&max_results=10"
+      "http://export.arxiv.org/api/query",
+      {
+        params: {
+          search_query: "cat:cs.AI+OR+cat:cs.LG",
+          start: 0,
+          max_results: 10,
+          sortBy: "lastUpdatedDate",
+          sortOrder: "descending"
+        }
+      }
     );
-    
-    // Parse XML response and extract data
-    // This is a placeholder implementation
-    return [];
+
+    // Parse XML response
+    const papers = []; // Parse XML response here
+    return papers.map(paper => ({
+      sourceId: paper.id,
+      source: "arxiv",
+      title: paper.title,
+      excerpt: paper.summary,
+      thumbnail: null, // arXiv doesn't provide thumbnails
+      metadata: {
+        authors: paper.authors,
+        categories: paper.categories,
+        published: paper.published
+      },
+      url: paper.link
+    }));
   } catch (error) {
     console.error("Error fetching arXiv content:", error);
+    return [];
+  }
+}
+
+export async function fetchGitHubContent(): Promise<InsertContent[]> {
+  try {
+    const response = await axios.get(
+      "https://api.github.com/search/repositories",
+      {
+        params: {
+          q: "stars:>1000",
+          sort: "stars",
+          order: "desc",
+          per_page: 10
+        },
+        headers: {
+          Accept: "application/vnd.github.v3+json",
+          // Add GitHub token if available
+          ...(process.env.GITHUB_TOKEN && {
+            Authorization: `token ${process.env.GITHUB_TOKEN}`
+          })
+        }
+      }
+    );
+
+    return response.data.items.map(repo => ({
+      sourceId: String(repo.id),
+      source: "github",
+      title: repo.full_name,
+      excerpt: repo.description,
+      thumbnail: repo.owner.avatar_url,
+      metadata: {
+        stars: repo.stargazers_count,
+        language: repo.language,
+        topics: repo.topics,
+        forks: repo.forks_count
+      },
+      url: repo.html_url
+    }));
+  } catch (error) {
+    console.error("Error fetching GitHub content:", error);
     return [];
   }
 }
@@ -107,12 +175,19 @@ export async function fetchContent(source?: string): Promise<InsertContent[]> {
       return fetchWikipediaContent();
     case "goodreads":
       return fetchGoodreadsContent();
-    case "openlibrary":
-      return fetchOpenLibraryContent();
     case "arxiv":
-      return fetchArxivContent();
+      return fetchArXivContent();
+    case "github":
+      return fetchGitHubContent();
     default:
-      // If no source specified, fetch from Wikipedia as default
-      return fetchWikipediaContent();
+      // If no source specified, fetch from all sources
+      const results = await Promise.all([
+        fetchWikipediaContent(),
+        fetchGitHubContent(),
+        fetchArXivContent()
+        // Temporarily disable Goodreads until XML parsing is implemented
+        // fetchGoodreadsContent()
+      ]);
+      return results.flat();
   }
 }
