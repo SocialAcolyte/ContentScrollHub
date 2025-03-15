@@ -1,20 +1,24 @@
 import { useState } from "react";
 import { SourceSelector } from "@/components/content/SourceSelector";
 import { ContentViewer } from "@/components/content/ContentViewer";
+import { UserNav } from "@/components/user/UserNav";
 
 export default function Home() {
   const [selectedSource, setSelectedSource] = useState<string>();
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="fixed top-0 left-0 right-0 z-10">
+    <div className="min-h-screen bg-black">
+      {/* Fixed top bar with source selector and user nav */}
+      <header className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between">
         <SourceSelector 
           selectedSource={selectedSource}
           onSourceChange={setSelectedSource}
         />
+        <UserNav />
       </header>
 
-      <main className="pt-[72px] pb-8 max-w-2xl mx-auto px-4">
+      {/* Full-screen content area */}
+      <main className="h-screen w-screen">
         <ContentViewer source={selectedSource} />
       </main>
     </div>

@@ -57,17 +57,15 @@ export function ContentViewer({ source }: ContentViewerProps) {
 
   if (isLoading) {
     return (
-      <div className="space-y-4">
-        {Array.from({ length: 2 }).map((_, i) => (
-          <Skeleton key={i} className="w-full aspect-[9/16]" />
-        ))}
+      <div className="h-screen w-screen">
+        <Skeleton className="w-full h-full" />
       </div>
     );
   }
 
   if (isError) {
     return (
-      <div className="p-4 text-center text-destructive">
+      <div className="h-screen w-screen flex items-center justify-center text-destructive">
         Error: {error instanceof Error ? error.message : "Failed to load content"}
       </div>
     );
@@ -75,18 +73,20 @@ export function ContentViewer({ source }: ContentViewerProps) {
 
   if (!data || data.pages.every(page => page.length === 0)) {
     return (
-      <div className="p-4 text-center text-muted-foreground">
+      <div className="h-screen w-screen flex items-center justify-center text-muted-foreground">
         No content available
       </div>
     );
   }
 
   return (
-    <div className="space-y-4 p-4">
+    <div className="h-screen w-screen snap-y snap-mandatory overflow-y-scroll">
       {data.pages.map((page, i) => (
-        <div key={i} className="space-y-4">
+        <div key={i}>
           {page.map((content: ContentType) => (
-            <ContentCard key={content.id} content={content} />
+            <div key={content.id} className="snap-start h-screen w-screen">
+              <ContentCard content={content} />
+            </div>
           ))}
         </div>
       ))}

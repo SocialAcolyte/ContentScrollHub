@@ -3,6 +3,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { sources } from "@/lib/sources";
 import { cn } from "@/lib/utils";
 import { Grid3X3Icon } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 
 type SourceSelectorProps = {
   selectedSource?: string;
@@ -11,15 +12,16 @@ type SourceSelectorProps = {
 
 export function SourceSelector({ selectedSource, onSourceChange }: SourceSelectorProps) {
   return (
-    <div className="w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <div className="bg-black/40 backdrop-blur-sm w-full">
       <ScrollArea className="w-full">
-        <div className="flex gap-2 p-3 md:p-4 items-center">
+        <div className="flex gap-2 p-3 items-center">
           <Button
-            variant={!selectedSource ? "default" : "outline"}
+            variant={!selectedSource ? "default" : "ghost"}
             size="sm"
             className={cn(
-              "flex items-center gap-1 md:gap-2 min-w-fit text-sm md:text-base",
-              !selectedSource && "bg-primary text-primary-foreground"
+              "flex items-center gap-1 min-w-fit text-sm",
+              !selectedSource && "bg-primary text-primary-foreground",
+              "text-white hover:bg-white/20"
             )}
             onClick={() => onSourceChange(undefined)}
           >
@@ -29,20 +31,28 @@ export function SourceSelector({ selectedSource, onSourceChange }: SourceSelecto
 
           {sources.map((source) => {
             const Icon = source.icon;
+            const isSelected = selectedSource === source.id;
             return (
-              <Button
-                key={source.id}
-                variant={selectedSource === source.id ? "default" : "outline"}
-                size="sm"
-                className={cn(
-                  "flex items-center gap-1 md:gap-2 min-w-fit text-sm md:text-base transition-all",
-                  selectedSource === source.id && "bg-primary text-primary-foreground"
-                )}
-                onClick={() => onSourceChange(source.id)}
-              >
-                <Icon className="h-4 w-4" />
-                <span className="hidden xs:inline">{source.name}</span>
-              </Button>
+              <div key={source.id} className="relative group">
+                <Button
+                  variant={isSelected ? "default" : "ghost"}
+                  size="sm"
+                  className={cn(
+                    "flex items-center gap-1 min-w-fit text-sm transition-all",
+                    isSelected ? "bg-primary text-primary-foreground" : "text-white hover:bg-white/20"
+                  )}
+                  onClick={() => onSourceChange(source.id)}
+                >
+                  <Icon className="h-4 w-4" />
+                  <span className="hidden xs:inline">{source.name}</span>
+                </Button>
+                <Badge 
+                  variant="secondary" 
+                  className="absolute -top-2 -right-2 text-[10px] opacity-0 group-hover:opacity-100 transition-opacity"
+                >
+                  {source.contentType}
+                </Badge>
+              </div>
             );
           })}
         </div>
