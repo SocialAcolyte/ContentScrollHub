@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import { Grid3X3Icon, RefreshCw } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useQueryClient } from "@tanstack/react-query";
+import { useState, useRef, useEffect } from "react";
 
 type SourceSelectorProps = {
   selectedSource?: string;
@@ -13,6 +14,10 @@ type SourceSelectorProps = {
 
 export function SourceSelector({ selectedSource, onSourceChange }: SourceSelectorProps) {
   const queryClient = useQueryClient();
+  const [isSelecting, setIsSelecting] = useState(false);
+  const [excludedSources, setExcludedSources] = useState<Set<string>>(new Set());
+  const pressTimer = useRef<NodeJS.Timeout>();
+  const [pressedButton, setPressedButton] = useState<string | null>(null);
 
   const handleRefresh = async () => {
     if (selectedSource) {
@@ -20,6 +25,47 @@ export function SourceSelector({ selectedSource, onSourceChange }: SourceSelecto
     }
     await queryClient.invalidateQueries({ queryKey: ["/api/contents"] });
   };
+
+  const handleSourceClick = (sourceId: string) => {
+    if (isSelecting) {
+      setExcludedSources(prev => {
+        const newSet = new Set(prev);
+        if (newSet.has(sourceId)) {
+          newSet.delete(sourceId);
+        } else {
+          newSet.add(sourceId);
+        }
+        return newSet;
+      });
+    } else {
+      onSourceChange(sourceId === selectedSource ? undefined : sourceId);
+    }
+  };
+
+  const handleAllSourcesPress = () => {
+    pressTimer.current = setTimeout(() => {
+      setIsSelecting(true);
+      setPressedButton('all');
+    }, 500);
+  };
+
+  const handleAllSourcesRelease = () => {
+    if (pressTimer.current) {
+      clearTimeout(pressTimer.current);
+    }
+    if (!isSelecting) {
+      onSourceChange(undefined);
+    }
+    setPressedButton(null);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (pressTimer.current) {
+        clearTimeout(pressTimer.current);
+      }
+    };
+  }, []);
 
   return (
     <div className="bg-black/40 backdrop-blur-sm w-full">
@@ -35,22 +81,29 @@ export function SourceSelector({ selectedSource, onSourceChange }: SourceSelecto
           </Button>
 
           <Button
-            variant={!selectedSource ? "default" : "ghost"}
+            variant={!selectedSource && !isSelecting ? "default" : "ghost"}
             size="sm"
             className={cn(
               "flex items-center gap-1 min-w-fit text-sm",
-              !selectedSource && "bg-primary text-primary-foreground",
-              "text-white hover:bg-white/20"
+              !selectedSource && !isSelecting && "bg-primary text-primary-foreground",
+              "text-white hover:bg-white/20",
+              isSelecting && "bg-destructive text-destructive-foreground"
             )}
-            onClick={() => onSourceChange(undefined)}
+            onMouseDown={handleAllSourcesPress}
+            onMouseUp={handleAllSourcesRelease}
+            onTouchStart={handleAllSourcesPress}
+            onTouchEnd={handleAllSourcesRelease}
           >
             <Grid3X3Icon className="h-4 w-4" />
-            <span className="hidden xs:inline">All</span>
+            <span className="hidden xs:inline">
+              {isSelecting ? "Select Sources to Hide" : "All"}
+            </span>
           </Button>
 
           {sources.map((source) => {
             const Icon = source.icon;
             const isSelected = selectedSource === source.id;
+            const isExcluded = excludedSources.has(source.id);
             return (
               <div key={source.id} className="relative group">
                 <Button
@@ -58,9 +111,10 @@ export function SourceSelector({ selectedSource, onSourceChange }: SourceSelecto
                   size="sm"
                   className={cn(
                     "flex items-center gap-1 min-w-fit text-sm transition-all",
-                    isSelected ? "bg-primary text-primary-foreground" : "text-white hover:bg-white/20"
+                    isSelected ? "bg-primary text-primary-foreground" : "text-white hover:bg-white/20",
+                    isExcluded && "opacity-50"
                   )}
-                  onClick={() => onSourceChange(source.id)}
+                  onClick={() => handleSourceClick(source.id)}
                 >
                   <Icon className="h-4 w-4" />
                   <span className="hidden xs:inline">{source.name}</span>

@@ -260,23 +260,40 @@ export async function fetchGitHubContent(): Promise<InsertContent[]> {
 }
 
 export async function fetchContent(source?: string): Promise<InsertContent[]> {
-  switch (source) {
-    case "wikipedia":
-      return fetchWikipediaContent();
-    case "blogs":
-      return fetchBlogContent();
-    case "books":
-      return fetchBookContent();
-    case "textbooks":
-      return fetchTextbookContent();
-    default:
-      // If no source specified, fetch from all sources
+  try {
+    let contents: InsertContent[] = [];
+
+    if (source) {
+      switch (source) {
+        case "wikipedia":
+          contents = await fetchWikipediaContent();
+          break;
+        case "blogs":
+          contents = await fetchBlogContent();
+          break;
+        case "books":
+          contents = await fetchBookContent();
+          break;
+        case "textbooks":
+          contents = await fetchTextbookContent();
+          break;
+      }
+    } else {
+      // If no source specified, fetch from all sources and shuffle
       const results = await Promise.all([
         fetchWikipediaContent(),
         fetchBlogContent(),
         fetchBookContent(),
         fetchTextbookContent()
       ]);
-      return results.flat();
+
+      // Flatten and shuffle the results
+      contents = results.flat().sort(() => Math.random() - 0.5);
+    }
+
+    return contents;
+  } catch (error) {
+    console.error("Error fetching content:", error);
+    return [];
   }
 }

@@ -2,9 +2,15 @@ import { type ContentType } from "@/types/content";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ExternalLink, Heart, Bookmark, Crown } from "lucide-react";
+import { Share2, Crown, AlertCircle } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { sources } from "@/lib/sources";
-import { useState, useEffect, useCallback } from "react";
+import { useCallback } from "react";
 
 type ContentOverlayProps = {
   content: ContentType;
@@ -14,23 +20,9 @@ type ContentOverlayProps = {
 export function ContentOverlay({ content, className }: ContentOverlayProps) {
   const source = sources.find(s => s.id === content.source);
   const Icon = source?.icon;
-  const [isLiked, setIsLiked] = useState(false);
-  const [isBookmarked, setIsBookmarked] = useState(false);
-  const [lastTap, setLastTap] = useState(0);
   const isPremium = content.contentType === "research_paper" || 
                    content.contentType === "textbook" || 
                    content.contentType === "blog_post";
-
-  const handleTap = useCallback(() => {
-    const now = Date.now();
-    const DOUBLE_TAP_DELAY = 300;
-
-    if (now - lastTap < DOUBLE_TAP_DELAY) {
-      // Double tap detected
-      setIsLiked(prev => !prev);
-    }
-    setLastTap(now);
-  }, [lastTap]);
 
   const handleClick = (e: React.MouseEvent) => {
     // Check if it's not a mobile device (no touch events)
@@ -38,6 +30,25 @@ export function ContentOverlay({ content, className }: ContentOverlayProps) {
       window.open(content.url, '_blank');
     }
     e.preventDefault();
+  };
+
+  const handleShare = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: content.title,
+          text: content.excerpt,
+          url: content.url,
+        });
+      } else {
+        // Fallback to copying to clipboard
+        await navigator.clipboard.writeText(content.url);
+        // TODO: Show toast notification
+      }
+    } catch (error) {
+      console.error('Error sharing:', error);
+    }
   };
 
   return (
@@ -48,7 +59,6 @@ export function ContentOverlay({ content, className }: ContentOverlayProps) {
         className
       )}
       onClick={handleClick}
-      onTouchEnd={handleTap}
     >
       {/* Top section with source info */}
       <div className="absolute top-0 left-0 right-0 p-4 flex items-center justify-between">
@@ -80,39 +90,38 @@ export function ContentOverlay({ content, className }: ContentOverlayProps) {
         <Button
           variant="ghost"
           size="icon"
-          className={cn(
-            "h-12 w-12 rounded-full bg-black/40 backdrop-blur-sm",
-            "text-white hover:text-primary hover:bg-white/20",
-            isLiked && "text-red-500"
-          )}
-          onClick={(e) => {
-            e.stopPropagation();
-            setIsLiked(!isLiked);
-          }}
+          className="h-12 w-12 rounded-full bg-black/40 backdrop-blur-sm text-white hover:text-primary hover:bg-white/20"
+          onClick={handleShare}
         >
-          <Heart className={cn(
-            "h-6 w-6 transition-colors",
-            isLiked && "fill-current"
-          )} />
+          <Share2 className="h-6 w-6" />
         </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          className={cn(
-            "h-12 w-12 rounded-full bg-black/40 backdrop-blur-sm",
-            "text-white hover:text-primary hover:bg-white/20",
-            isBookmarked && "text-yellow-500"
-          )}
-          onClick={(e) => {
-            e.stopPropagation();
-            setIsBookmarked(!isBookmarked);
-          }}
-        >
-          <Bookmark className={cn(
-            "h-6 w-6 transition-colors",
-            isBookmarked && "fill-current"
-          )} />
-        </Button>
+
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-12 w-12 rounded-full bg-black/40 backdrop-blur-sm text-white hover:text-primary hover:bg-white/20"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <AlertCircle className="h-6 w-6" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-[200px]">
+            <DropdownMenuItem onClick={(e) => {
+              e.stopPropagation();
+              // TODO: Implement report functionality
+            }}>
+              Report Content
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={(e) => {
+              e.stopPropagation();
+              // TODO: Implement hide functionality
+            }}>
+              Hide this content
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </div>
   );
