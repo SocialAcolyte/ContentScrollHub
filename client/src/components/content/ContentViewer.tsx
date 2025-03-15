@@ -85,7 +85,7 @@ export function ContentViewer({ source }: ContentViewerProps) {
   }
 
   return (
-    <div className="h-screen w-screen snap-y snap-mandatory overflow-y-scroll">
+    <div className="h-screen w-screen overflow-y-auto snap-y snap-mandatory">
       {data.pages.map((page, i) => (
         <div key={i}>
           {page.map((content: ContentType) => (

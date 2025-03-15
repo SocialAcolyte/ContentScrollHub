@@ -10,22 +10,22 @@ type ContentCardProps = {
 export function ContentCard({ content, className }: ContentCardProps) {
   return (
     <div className={cn(
-      "relative w-full overflow-hidden",
-      // Mobile-optimized aspect ratio
-      "aspect-square md:aspect-[3/4] lg:aspect-[9/16]",
-      "bg-muted rounded-lg shadow-lg",
+      "relative w-full h-full overflow-hidden",
+      "bg-black",
       className
     )}>
       {content.thumbnail ? (
         <img
           src={content.thumbnail}
           alt={content.title}
-          className="w-full h-full object-cover"
+          className="w-full h-full object-contain"
           loading="lazy"
         />
       ) : (
-        <div className="w-full h-full flex items-center justify-center bg-muted">
-          <span className="text-muted-foreground">No preview available</span>
+        <div className="w-full h-full flex items-center justify-center bg-gradient-to-b from-gray-900 to-black">
+          <span className="text-2xl text-white/80 font-medium max-w-[80%] text-center">
+            {content.title}
+          </span>
         </div>
       )}
 
