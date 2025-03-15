@@ -12,16 +12,6 @@ interface WikipediaResponse {
   };
 }
 
-interface GoodreadsResponse {
-  books: Array<{
-    id: string;
-    title: string;
-    description: string;
-    image_url: string;
-    url: string;
-  }>;
-}
-
 export async function fetchWikipediaContent(): Promise<InsertContent[]> {
   try {
     const response = await axios.get<WikipediaResponse>(
@@ -47,14 +37,114 @@ export async function fetchWikipediaContent(): Promise<InsertContent[]> {
     return Object.values(response.data.query.pages).map((page) => ({
       sourceId: String(page.pageid),
       source: "wikipedia",
+      contentType: "article",
       title: page.title,
       excerpt: page.extract,
-      thumbnail: page?.thumbnail?.source,
+      thumbnail: page.thumbnail?.source,
       metadata: { pageid: page.pageid },
       url: `https://en.wikipedia.org/wiki/${encodeURIComponent(page.title)}`,
     }));
   } catch (error) {
     console.error("Error fetching Wikipedia content:", error);
+    return [];
+  }
+}
+
+export async function fetchBlogContent(): Promise<InsertContent[]> {
+  try {
+    const response = await axios.get(
+      "https://dev.to/api/articles",
+      {
+        params: {
+          per_page: 10,
+          top: 1
+        },
+        headers: {
+          "Accept": "application/json"
+        }
+      }
+    );
+
+    return response.data.map((post: any) => ({
+      sourceId: String(post.id),
+      source: "blogs",
+      contentType: "blog_post",
+      title: post.title,
+      excerpt: post.description,
+      thumbnail: post.cover_image,
+      metadata: {
+        author: post.user.name,
+        tags: post.tags
+      },
+      url: post.url
+    }));
+  } catch (error) {
+    console.error("Error fetching blog content:", error);
+    return [];
+  }
+}
+
+export async function fetchBookContent(): Promise<InsertContent[]> {
+  try {
+    // Using Project Gutenberg's catalog
+    const response = await axios.get(
+      "https://gutendex.com/books",
+      {
+        params: {
+          mime_type: "text/plain",
+          languages: "en"
+        }
+      }
+    );
+
+    return response.data.results.map((book: any) => ({
+      sourceId: String(book.id),
+      source: "books",
+      contentType: "book",
+      title: book.title,
+      excerpt: `${book.authors[0]?.name || 'Unknown Author'} - ${book.subjects.slice(0, 3).join(', ')}`,
+      thumbnail: book.formats["image/jpeg"],
+      metadata: {
+        author: book.authors[0]?.name,
+        languages: book.languages,
+        subjects: book.subjects
+      },
+      url: book.formats["text/plain"]
+    }));
+  } catch (error) {
+    console.error("Error fetching book content:", error);
+    return [];
+  }
+}
+
+export async function fetchTextbookContent(): Promise<InsertContent[]> {
+  try {
+    const response = await axios.get(
+      "https://openstax.org/api/v2/pages",
+      {
+        params: {
+          type: "books.Book",
+          limit: 10
+        }
+      }
+    );
+
+    return response.data.items.map((book: any) => ({
+      sourceId: String(book.id),
+      source: "textbooks",
+      contentType: "textbook",
+      title: book.title,
+      excerpt: book.description,
+      thumbnail: book.cover_url,
+      metadata: {
+        subjects: book.subjects,
+        edition: book.edition,
+        language: book.language
+      },
+      url: `https://openstax.org/details/${book.slug}`
+    }));
+  } catch (error) {
+    console.error("Error fetching textbook content:", error);
     return [];
   }
 }
@@ -173,20 +263,19 @@ export async function fetchContent(source?: string): Promise<InsertContent[]> {
   switch (source) {
     case "wikipedia":
       return fetchWikipediaContent();
-    case "goodreads":
-      return fetchGoodreadsContent();
-    case "arxiv":
-      return fetchArXivContent();
-    case "github":
-      return fetchGitHubContent();
+    case "blogs":
+      return fetchBlogContent();
+    case "books":
+      return fetchBookContent();
+    case "textbooks":
+      return fetchTextbookContent();
     default:
       // If no source specified, fetch from all sources
       const results = await Promise.all([
         fetchWikipediaContent(),
-        fetchGitHubContent(),
-        fetchArXivContent()
-        // Temporarily disable Goodreads until XML parsing is implemented
-        // fetchGoodreadsContent()
+        fetchBlogContent(),
+        fetchBookContent(),
+        fetchTextbookContent()
       ]);
       return results.flat();
   }

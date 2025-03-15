@@ -1,5 +1,5 @@
-import { SiWikipedia, SiGoodreads, SiGithub, SiMedium, SiKaggle } from "react-icons/si";
-import { BookOpen, FileText, BookMarked, Newspaper } from "lucide-react";
+import { SiWikipedia, SiMedium } from "react-icons/si";
+import { BookOpen, BookMarked } from "lucide-react";
 import { ContentType } from "@shared/schema";
 
 export const sources = [
@@ -10,51 +10,21 @@ export const sources = [
     contentType: ContentType.ARTICLE
   },
   {
-    id: "goodreads",
-    name: "Goodreads",
-    icon: SiGoodreads,
-    contentType: ContentType.BOOK
-  },
-  {
-    id: "openstax",
-    name: "OpenStax",
-    icon: BookMarked,
-    contentType: ContentType.TEXTBOOK
-  },
-  {
-    id: "arxiv",
-    name: "arXiv",
-    icon: FileText,
-    contentType: ContentType.RESEARCH_PAPER
-  },
-  {
-    id: "github",
-    name: "GitHub",
-    icon: SiGithub,
-    contentType: ContentType.REPOSITORY
-  },
-  {
-    id: "medium",
-    name: "Medium",
+    id: "blogs",
+    name: "Blogs",
     icon: SiMedium,
     contentType: ContentType.BLOG_POST
   },
   {
-    id: "kaggle",
-    name: "Kaggle",
-    icon: SiKaggle,
-    contentType: ContentType.RESEARCH_PAPER
-  },
-  {
-    id: "project_gutenberg",
-    name: "Project Gutenberg",
+    id: "books",
+    name: "Books",
     icon: BookOpen,
     contentType: ContentType.BOOK
   },
   {
-    id: "dev_to",
-    name: "DEV",
-    icon: Newspaper,
-    contentType: ContentType.BLOG_POST
+    id: "textbooks",
+    name: "Textbooks",
+    icon: BookMarked,
+    contentType: ContentType.TEXTBOOK
   }
 ] as const;
