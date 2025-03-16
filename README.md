@@ -73,3 +73,16 @@ Your app will be deployed to a `<your-app>.replit.app` URL.
 - `npm run build`: Build for production
 - `npm start`: Start production server
 - `npm run check`: Type check TypeScript files
+
+## Things To Work On
+- Improved UI layout
+- - improve inverese all button bug
+  - improve icon sizing and placements
+  - delete duplicative reload icons
+- Improve Follow Me path ui
+- Improve fetching speed
+- improve image handling
+- improve account handling
+- - improve account creation styling bug
+- Improve sharing and mobile functionality
+- Create advertisement serving logic
