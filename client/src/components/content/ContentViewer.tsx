@@ -1,6 +1,7 @@
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
 import { ContentCard } from "./ContentCard";
+import { AdPlaceholder } from "./AdPlaceholder";
 import { type ContentType } from "@/types/content";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -34,7 +35,7 @@ export function ContentViewer({ source }: ContentViewerProps) {
       const data = await response.json() as ContentType[];
       return data;
     },
-    getNextPageParam: (lastPage: ContentType[], pages: ContentType[][]) => {
+    getNextPageParam: (lastPage, pages) => {
       return lastPage.length === 0 ? undefined : pages.length + 1;
     },
   });
@@ -79,19 +80,27 @@ export function ContentViewer({ source }: ContentViewerProps) {
   if (!data || data.pages.every(page => page.length === 0)) {
     return (
       <div className="h-screen w-screen flex items-center justify-center text-muted-foreground">
-        hmm... It seems like my vibe coding isnt good enough for this yet
+        No content available for this source
       </div>
     );
   }
 
   return (
     <div className="h-screen w-screen overflow-y-auto snap-y snap-mandatory">
-      {data.pages.map((page, i) => (
-        <div key={i}>
-          {page.map((content: ContentType) => (
-            <div key={content.id} className="snap-start h-screen w-screen">
-              <ContentCard content={content} />
-            </div>
+      {data.pages.map((page, pageIndex) => (
+        <div key={pageIndex}>
+          {page.map((content: ContentType, index: number) => (
+            <>
+              <div key={content.id} className="snap-start h-screen w-screen">
+                <ContentCard content={content} />
+              </div>
+              {(index + 1) % 5 === 0 && (
+                <AdPlaceholder 
+                  position={index} 
+                  sourceType={content.contentType}
+                />
+              )}
+            </>
           ))}
         </div>
       ))}
