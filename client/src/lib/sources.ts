@@ -1,5 +1,5 @@
 import { SiWikipedia, SiMedium, SiGithub } from "react-icons/si";
-import { BookOpen, BookMarked } from "lucide-react";
+import { BookOpen, BookMarked, FileText } from "lucide-react";
 import { ContentType } from "@shared/schema";
 
 export const sources = [
@@ -32,5 +32,11 @@ export const sources = [
     name: "GitHub",
     icon: SiGithub,
     contentType: ContentType.REPOSITORY
+  },
+  {
+    id: "arxiv",
+    name: "arXiv",
+    icon: FileText,
+    contentType: ContentType.RESEARCH_PAPER
   }
 ] as const;

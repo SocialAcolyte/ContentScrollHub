@@ -2,7 +2,7 @@ import { type ContentType } from "@/types/content";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Share2, Crown, AlertCircle } from "lucide-react";
+import { Share2, Crown, AlertCircle, Heart } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -10,7 +10,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { sources } from "@/lib/sources";
-import { useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 
 type ContentOverlayProps = {
   content: ContentType;
@@ -20,9 +20,47 @@ type ContentOverlayProps = {
 export function ContentOverlay({ content, className }: ContentOverlayProps) {
   const source = sources.find(s => s.id === content.source);
   const Icon = source?.icon;
+  const [isLiked, setIsLiked] = useState(false);
+  const [lastTap, setLastTap] = useState(0);
   const isPremium = content.contentType === "research_paper" || 
                    content.contentType === "textbook" || 
                    content.contentType === "blog_post";
+
+  // Load liked state from localStorage on mount
+  useEffect(() => {
+    const liked = localStorage.getItem(`liked_${content.id}`);
+    if (liked) {
+      setIsLiked(true);
+    }
+  }, [content.id]);
+
+  const handleLike = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    const newLikedState = !isLiked;
+    setIsLiked(newLikedState);
+    if (newLikedState) {
+      localStorage.setItem(`liked_${content.id}`, 'true');
+    } else {
+      localStorage.removeItem(`liked_${content.id}`);
+    }
+  }, [isLiked, content.id]);
+
+  const handleTap = useCallback(() => {
+    const now = Date.now();
+    const DOUBLE_TAP_DELAY = 300;
+
+    if (now - lastTap < DOUBLE_TAP_DELAY) {
+      // Double tap detected - trigger like
+      const newLikedState = !isLiked;
+      setIsLiked(newLikedState);
+      if (newLikedState) {
+        localStorage.setItem(`liked_${content.id}`, 'true');
+      } else {
+        localStorage.removeItem(`liked_${content.id}`);
+      }
+    }
+    setLastTap(now);
+  }, [lastTap, isLiked, content.id]);
 
   const handleClick = (e: React.MouseEvent) => {
     // Check if it's not a mobile device (no touch events)
@@ -59,6 +97,7 @@ export function ContentOverlay({ content, className }: ContentOverlayProps) {
         className
       )}
       onClick={handleClick}
+      onTouchEnd={handleTap}
     >
       {/* Top section with source info */}
       <div className="absolute top-0 left-0 right-0 p-4 flex items-center justify-between">
@@ -87,6 +126,22 @@ export function ContentOverlay({ content, className }: ContentOverlayProps) {
 
       {/* Action buttons at bottom right */}
       <div className="absolute bottom-4 right-4 flex flex-col gap-2">
+        <Button
+          variant="ghost"
+          size="icon"
+          className={cn(
+            "h-12 w-12 rounded-full bg-black/40 backdrop-blur-sm",
+            "text-white hover:text-primary hover:bg-white/20",
+            isLiked && "text-red-500"
+          )}
+          onClick={handleLike}
+        >
+          <Heart className={cn(
+            "h-6 w-6 transition-colors",
+            isLiked && "fill-current"
+          )} />
+        </Button>
+
         <Button
           variant="ghost"
           size="icon"
