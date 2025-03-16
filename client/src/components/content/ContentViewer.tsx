@@ -79,7 +79,7 @@ export function ContentViewer({ source }: ContentViewerProps) {
   if (!data || data.pages.every(page => page.length === 0)) {
     return (
       <div className="h-screen w-screen flex items-center justify-center text-muted-foreground">
-        No content available
+        hmm... It seems like my vibe coding isnt good enough for this yet
       </div>
     );
   }

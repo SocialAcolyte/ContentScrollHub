@@ -1,292 +1,319 @@
-import axios from "axios";
+import axios, { AxiosError } from "axios";
 import type { InsertContent } from "@shared/schema";
+import { XMLParser } from "fast-xml-parser";
+import rateLimit from "axios-rate-limit";
+
+// Configure axios with rate limiting
+const http = rateLimit(axios.create(), {
+  maxRequests: 2,
+  perMilliseconds: 1000
+});
+
+// Interfaces for type safety
+interface ContentConfig {
+  maxRetries: number;
+  timeout: number;
+  minExcerptLength: number;
+}
+
+const config: ContentConfig = {
+  maxRetries: 3,
+  timeout: 10000,
+  minExcerptLength: 50
+};
+
+// Utility function for retry logic
+async function fetchWithRetry<T>(fn: () => Promise<T>, retries = config.maxRetries): Promise<T> {
+  try {
+    return await fn();
+  } catch (error) {
+    if (retries > 0 && (error instanceof AxiosError && error.response?.status === 429)) {
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      return fetchWithRetry(fn, retries - 1);
+    }
+    throw error;
+  }
+}
+
+// Validate content item
+function isValidContentItem(item: InsertContent): boolean {
+  return !!(
+    item.sourceId &&
+    item.title?.length > 3 &&
+    (item.excerpt?.length ?? 0) >= config.minExcerptLength &&
+    item.url
+  );
+}
 
 export async function fetchWikipediaContent(): Promise<InsertContent[]> {
   try {
-    const response = await axios.get(
-      "https://en.wikipedia.org/w/api.php",
-      {
+    const response = await fetchWithRetry(() =>
+      http.get("https://en.wikipedia.org/w/api.php", {
+        timeout: config.timeout,
         params: {
           action: "query",
           format: "json",
           prop: "extracts|pageimages",
           generator: "random",
           grnnamespace: 0,
-          grnlimit: 15, // Increased from 10
-          exchars: 300,
+          grnlimit: 15,
+          exchars: 500, // Increased for better excerpts
           exlimit: 15,
           explaintext: true,
           piprop: "thumbnail",
           pithumbsize: 500,
           origin: "*",
         },
-      }
+      })
     );
 
-    return Object.values(response.data.query.pages).map((page: any) => ({
-      sourceId: String(page.pageid),
-      source: "wikipedia",
-      contentType: "article",
-      title: page.title,
-      excerpt: page.extract,
-      thumbnail: page.thumbnail?.source,
-      metadata: { pageid: page.pageid },
-      url: `https://en.wikipedia.org/wiki/${encodeURIComponent(page.title)}`,
-    }));
+    return Object.values(response.data.query.pages)
+      .map((page: any) => ({
+        sourceId: String(page.pageid),
+        source: "wikipedia",
+        contentType: "article",
+        title: page.title?.trim(),
+        excerpt: page.extract?.trim(),
+        thumbnail: page.thumbnail?.source,
+        metadata: { pageid: page.pageid },
+        url: `https://en.wikipedia.org/wiki/${encodeURIComponent(page.title)}`,
+      }))
+      .filter(isValidContentItem);
   } catch (error) {
-    console.error("Error fetching Wikipedia content:", error);
+    console.error("Wikipedia fetch error:", error);
     return [];
   }
 }
 
 export async function fetchBlogContent(): Promise<InsertContent[]> {
   try {
-    const response = await axios.get(
-      "https://dev.to/api/articles",
-      {
+    const response = await fetchWithRetry(() =>
+      http.get("https://dev.to/api/articles", {
+        timeout: config.timeout,
         params: {
-          per_page: 15, // Increased from 10
-          top: 1
+          per_page: 15,
+          state: "fresh", // Get fresh content
         },
         headers: {
-          "Accept": "application/json"
-        }
-      }
+          "Accept": "application/json",
+          "api-key": process.env.DEVTO_API_KEY, // Use env variable for API key
+        },
+      })
     );
 
-    return response.data.map((post: any) => ({
-      sourceId: String(post.id),
-      source: "blogs",
-      contentType: "blog_post",
-      title: post.title,
-      excerpt: post.description,
-      thumbnail: post.cover_image,
-      metadata: {
-        author: post.user.name,
-        tags: post.tags
-      },
-      url: post.url
-    }));
+    return response.data
+      .map((post: any) => ({
+        sourceId: String(post.id),
+        source: "blogs",
+        contentType: "blog_post",
+        title: post.title?.trim(),
+        excerpt: post.description || post.body_markdown?.slice(0, 300),
+        thumbnail: post.cover_image || post.social_image,
+        metadata: {
+          author: post.user?.name,
+          tags: post.tag_list || post.tags,
+          readingTime: post.reading_time_minutes,
+        },
+        url: post.url || post.canonical_url,
+      }))
+      .filter(isValidContentItem);
   } catch (error) {
-    console.error("Error fetching blog content:", error);
+    console.error("Blog fetch error:", error);
     return [];
   }
 }
 
 export async function fetchBookContent(): Promise<InsertContent[]> {
   try {
-    const subjects = ['science', 'programming', 'technology', 'fiction'];
+    const subjects = ["science", "programming", "technology", "fiction"];
     const randomSubject = subjects[Math.floor(Math.random() * subjects.length)];
 
-    const response = await axios.get(
-      `https://openlibrary.org/subjects/${randomSubject}.json`,
-      {
+    const response = await fetchWithRetry(() =>
+      http.get(`https://openlibrary.org/subjects/${randomSubject}.json`, {
+        timeout: config.timeout,
         params: {
-          limit: 15 // Increased from 10
-        }
-      }
+          limit: 15,
+          details: true, // Get more detailed results
+        },
+      })
     );
 
-    return response.data.works.map((work: any) => ({
-      sourceId: work.key,
-      source: "books",
-      contentType: "book",
-      title: work.title,
-      excerpt: work.authors?.map((a: any) => a.name).join(', '),
-      thumbnail: work.cover_id ? `https://covers.openlibrary.org/b/id/${work.cover_id}-L.jpg` : null,
-      metadata: {
-        authors: work.authors,
-        firstPublishYear: work.first_publish_year,
-        subjects: work.subject
-      },
-      url: `https://openlibrary.org${work.key}`
-    }));
+    return response.data.works
+      .map((work: any) => ({
+        sourceId: work.key,
+        source: "books",
+        contentType: "book",
+        title: work.title?.trim(),
+        excerpt:
+          work.description?.value ||
+          work.authors?.map((a: any) => a.name).join(", ") ||
+          work.subtitle,
+        thumbnail: work.cover_id
+          ? `https://covers.openlibrary.org/b/id/${work.cover_id}-L.jpg`
+          : null,
+        metadata: {
+          authors: work.authors,
+          firstPublishYear: work.first_publish_year,
+          subjects: work.subjects || work.subject,
+        },
+        url: `https://openlibrary.org${work.key}`,
+      }))
+      .filter(isValidContentItem);
   } catch (error) {
-    console.error("Error fetching book content:", error);
+    console.error("Book fetch error:", error);
     return [];
   }
 }
 
 export async function fetchTextbookContent(): Promise<InsertContent[]> {
   try {
-    const response = await axios.get(
-      "https://openstax.org/api/v2/subjects"
+    const response = await fetchWithRetry(() =>
+      http.get("https://openstax.org/api/v2/pages/?type=books.Book", {
+        timeout: config.timeout,
+        params: {
+          per_page: 15,
+        },
+      })
     );
 
-    const books = response.data.items
-      .filter((subject: any) => subject.books && subject.books.length > 0)
-      .flatMap((subject: any) => subject.books)
-      .slice(0, 15); // Take up to 15 books
-
-    return books.map((book: any) => ({
-      sourceId: String(book.id),
-      source: "textbooks",
-      contentType: "textbook",
-      title: book.title,
-      excerpt: book.description || 'OpenStax textbook',
-      thumbnail: book.cover_url,
-      metadata: {
-        subject: book.subject,
-        edition: book.edition,
-        language: book.language
-      },
-      url: `https://openstax.org/details/${book.slug}`
-    }));
+    const books = response.data.results || [];
+    return books
+      .map((book: any) => ({
+        sourceId: String(book.id),
+        source: "textbooks",
+        contentType: "textbook",
+        title: book.title?.trim(),
+        excerpt: book.description || book.promotional_text || "OpenStax textbook",
+        thumbnail: book.cover_url || book.high_resolution_cover_url,
+        metadata: {
+          subject: book.subjects?.[0]?.name,
+          edition: book.current_edition,
+          language: book.language || "en",
+        },
+        url: `https://openstax.org/details/${book.slug}`,
+      }))
+      .filter(isValidContentItem);
   } catch (error) {
-    console.error("Error fetching textbook content:", error);
+    console.error("Textbook fetch error:", error);
     return [];
   }
 }
 
 export async function fetchArXivContent(): Promise<InsertContent[]> {
   try {
-    const response = await axios.get(
-      "http://export.arxiv.org/api/query",
-      {
+    const response = await fetchWithRetry(() =>
+      http.get("http://export.arxiv.org/api/query", {
+        timeout: config.timeout,
         params: {
-          search_query: "cat:cs.AI+OR+cat:cs.LG+OR+cat:cs.CV",
+          search_query: "cat:cs.AI OR cat:cs.LG OR cat:cs.CV",
           start: 0,
           max_results: 15,
           sortBy: "lastUpdatedDate",
-          sortOrder: "descending"
-        }
-      }
+          sortOrder: "descending",
+        },
+      })
     );
 
-    // Parse XML response using string manipulation (since it's simple XML)
-    const entries = response.data.split('<entry>').slice(1);
-    return entries.map((entry: string) => {
-      const title = entry.match(/<title>(.*?)<\/title>/s)?.[1]?.trim() || '';
-      const summary = entry.match(/<summary>(.*?)<\/summary>/s)?.[1]?.trim() || '';
-      const id = entry.match(/<id>(.*?)<\/id>/)?.[1] || '';
-      const authors = entry.match(/<author>(.*?)<\/author>/g)?.map(
-        (author: string) => author.match(/<name>(.*?)<\/name>/)?.[1]
-      ) || [];
+    const parser = new XMLParser();
+    const parsed = parser.parse(response.data);
+    const entries = parsed.feed?.entry || [];
 
-      return {
-        sourceId: id,
+    return entries
+      .map((entry: any) => ({
+        sourceId: entry.id,
         source: "arxiv",
         contentType: "research_paper",
-        title: title.replace(/\n/g, ' '),
-        excerpt: summary.replace(/\n/g, ' ').slice(0, 300),
+        title: entry.title?.trim().replace(/\s+/g, " "),
+        excerpt: entry.summary?.trim().replace(/\s+/g, " ").slice(0, 300),
         thumbnail: null,
         metadata: {
-          authors,
-          arxivId: id.split('/').pop()
+          authors: Array.isArray(entry.author)
+            ? entry.author.map((a: any) => a.name)
+            : [entry.author?.name],
+          arxivId: entry.id.split("/").pop(),
+          updated: entry.updated,
         },
-        url: id.replace('abs', 'pdf')
-      };
-    });
+        url: entry.id.replace("abs", "pdf"),
+      }))
+      .filter(isValidContentItem);
   } catch (error) {
-    console.error("Error fetching arXiv content:", error);
+    console.error("arXiv fetch error:", error);
     return [];
   }
 }
 
-// Helper function to shuffle an array
 function shuffleArray<T>(array: T[]): T[] {
-  for (let i = array.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [array[i], array[j]] = [array[j], array[i]];
-  }
-  return array;
+  return array.sort(() => Math.random() - 0.5);
 }
 
 export async function fetchContent(source?: string): Promise<InsertContent[]> {
   try {
-    let contents: InsertContent[] = [];
-
     if (source) {
-      // Fetch from specific source
-      switch (source) {
-        case "wikipedia":
-          contents = await fetchWikipediaContent();
-          break;
-        case "blogs":
-          contents = await fetchBlogContent();
-          break;
-        case "books":
-          contents = await fetchBookContent();
-          break;
-        case "textbooks":
-          contents = await fetchTextbookContent();
-          break;
-        case "arxiv":
-          contents = await fetchArXivContent();
-          break;
-        default:
-          contents = [];
-      }
-    } else {
-      // Fetch from all sources in parallel
-      const fetchPromises = [
-        fetchWikipediaContent(),
-        fetchBlogContent(),
-        fetchBookContent(),
-        fetchTextbookContent(),
-        fetchArXivContent()
-      ];
-
-      const results = await Promise.all(
-        fetchPromises.map(p => p.catch(error => {
-          console.error("Error fetching content:", error);
-          return [];
-        }))
-      );
-
-      // Interleave and shuffle results
-      const maxLength = Math.max(...results.map(arr => arr.length));
-      contents = [];
-
-      // First round of interleaving
-      for (let i = 0; i < maxLength; i++) {
-        for (let j = 0; j < results.length; j++) {
-          if (results[j][i]) {
-            contents.push(results[j][i]);
-          }
-        }
-      }
-
-      // Additional shuffle for more randomness
-      contents = shuffleArray(contents);
+      const fetchers: Record<string, () => Promise<InsertContent[]>> = {
+        wikipedia: fetchWikipediaContent,
+        blogs: fetchBlogContent,
+        books: fetchBookContent,
+        textbooks: fetchTextbookContent,
+        arxiv: fetchArXivContent,
+      };
+      return (fetchers[source] || (async () => []))();
     }
 
-    return contents;
+    const results = await Promise.allSettled([
+      fetchWikipediaContent(),
+      fetchBlogContent(),
+      fetchBookContent(),
+      fetchTextbookContent(),
+      fetchArXivContent(),
+    ]);
+
+    const contents = results
+      .filter(result => result.status === "fulfilled")
+      .flatMap(result => (result as PromiseFulfilledResult<InsertContent[]>).value);
+
+    return shuffleArray(contents).slice(0, 50); // Limit total results
   } catch (error) {
-    console.error("Error fetching content:", error);
+    console.error("Content fetch error:", error);
     return [];
   }
 }
 
 export async function fetchGoodreadsContent(): Promise<InsertContent[]> {
   try {
-    // Using Goodreads public RSS feed since the API is deprecated
-    const response = await axios.get(
-      "https://www.goodreads.com/review/recent_reviews.xml",
-      {
+    // Note: Goodreads API is deprecated, this is a workaround using RSS
+    const response = await fetchWithRetry(() =>
+      http.get("https://www.goodreads.com/review/list_rss.php", {
+        timeout: config.timeout,
         params: {
-          format: "xml",
+          shelf: "currently-reading",
+          key: process.env.GOODREADS_KEY, // Requires user-specific key
         },
-      }
+      })
     );
 
-    // Parse XML response (simplified for example)
-    // In a real implementation, use a proper XML parser
-    const reviews = []; // Parse XML here
-    return reviews.map(review => ({
-      sourceId: review.id,
-      source: "goodreads",
-      title: review.book.title,
-      excerpt: review.body,
-      thumbnail: review.book.image_url,
-      metadata: {
-        author: review.book.author,
-        rating: review.rating
-      },
-      url: review.url
-    }));
+    const parser = new XMLParser();
+    const parsed = parser.parse(response.data);
+    const items = parsed.rss?.channel?.item || [];
+
+    return items
+      .map((item: any) => ({
+        sourceId: item.guid,
+        source: "goodreads",
+        contentType: "book_review",
+        title: item.title?.trim(),
+        excerpt: item.description?.trim().slice(0, 300),
+        thumbnail: item.book_image_url,
+        metadata: {
+          author: item.author_name,
+          rating: item.user_rating,
+          bookId: item.book_id,
+        },
+        url: item.link,
+      }))
+      .filter(isValidContentItem)
+      .slice(0, 15);
   } catch (error) {
-    console.error("Error fetching Goodreads content:", error);
+    console.error("Goodreads fetch error:", error);
     return [];
   }
 }
