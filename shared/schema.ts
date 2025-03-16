@@ -1,4 +1,4 @@
-import { pgTable, text, serial, json, timestamp, boolean } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, json, timestamp, boolean, integer } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -19,6 +19,9 @@ export const users = pgTable("users", {
   isPremium: boolean("is_premium").default(false),
   stripeCustomerId: text("stripe_customer_id"),
   stripeSubscriptionId: text("stripe_subscription_id"),
+  likedContent: json("liked_content").$type<number[]>().default([]),
+  preferences: json("preferences").$type<Record<string, number>>().default({}),
+  hiddenContent: json("hidden_content").$type<number[]>().default([]),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -32,6 +35,9 @@ export const contents = pgTable("contents", {
   thumbnail: text("thumbnail"),
   metadata: json("metadata").$type<Record<string, any>>(),
   url: text("url").notNull(),
+  likeCount: integer("like_count").default(0),
+  shareCount: integer("share_count").default(0),
+  reportCount: integer("report_count").default(0),
   fetchedAt: timestamp("fetched_at").defaultNow()
 });
 
