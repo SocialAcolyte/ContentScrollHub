@@ -33,6 +33,7 @@ export default function AuthPage() {
       password: "",
     },
     resolver: zodResolver(
+      import { z } from "zod";
       z.object({
         username: z.string().min(1, "Username is required"),
         password: z.string().min(1, "Password is required"),
