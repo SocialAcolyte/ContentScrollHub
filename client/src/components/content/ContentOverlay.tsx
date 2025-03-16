@@ -161,6 +161,7 @@ export function ContentOverlay({ content, className }: ContentOverlayProps) {
           await apiRequest({
             url: `/api/contents/${content.id}/share`,
             method: 'POST',
+            data: {}
           });
         } catch (error) {
           console.error('Error updating share count:', error);
@@ -183,6 +184,7 @@ export function ContentOverlay({ content, className }: ContentOverlayProps) {
       await apiRequest({
         url: `/api/contents/${content.id}/report`,
         method: 'POST',
+        data: {}
       });
       
       toast({
@@ -210,6 +212,7 @@ export function ContentOverlay({ content, className }: ContentOverlayProps) {
         await apiRequest({
           url: `/api/user/hide/${content.id}`,
           method: 'POST',
+          data: {}
         });
       } catch (error) {
         console.error('Error hiding content:', error);

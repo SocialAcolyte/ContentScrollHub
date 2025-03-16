@@ -66,7 +66,9 @@ export class MemStorage implements IStorage {
 
     // Sort by most recent first
     contentList.sort((a, b) => {
-      return new Date(b.fetchedAt).getTime() - new Date(a.fetchedAt).getTime();
+      const dateA = a.fetchedAt instanceof Date ? a.fetchedAt : new Date(a.fetchedAt || 0);
+      const dateB = b.fetchedAt instanceof Date ? b.fetchedAt : new Date(b.fetchedAt || 0);
+      return dateB.getTime() - dateA.getTime();
     });
 
     return contentList.slice(start, start + pageSize);
