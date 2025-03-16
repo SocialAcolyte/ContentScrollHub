@@ -135,13 +135,27 @@ export default function AuthPage() {
                         </FormItem>
                       )}
                     />
-                    <Button
-                      type="submit"
-                      className="w-full"
-                      disabled={loginMutation.isPending}
-                    >
-                      {loginMutation.isPending ? "Logging in..." : "Login"}
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button
+                        type="submit"
+                        className="w-full"
+                        disabled={loginMutation.isPending}
+                      >
+                        {loginMutation.isPending ? "Logging in..." : "Login"}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          // Implement guest login logic here.  This is a placeholder.
+                          console.log("Guest login initiated");
+                          setLocation("/");
+                        }}
+                        className="bg-transparent text-white hover:text-primary hover:bg-white/20"
+                      >
+                        Continue as Guest
+                      </Button>
+                    </div>
                   </form>
                 </Form>
               </TabsContent>
