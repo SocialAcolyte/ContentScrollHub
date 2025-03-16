@@ -3,6 +3,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useLocation } from "wouter";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
+import { z } from "zod";
 import { insertUserSchema } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import {
@@ -32,11 +33,9 @@ export default function AuthPage() {
       username: "",
       password: "",
     },
-    resolver: zodResolver(
-      import { z } from "zod";
-      z.object({
-        username: z.string().min(1, "Username is required"),
-        password: z.string().min(1, "Password is required"),
+    resolver: zodResolver(z.object({
+      username: z.string().min(1, "Username is required"),
+      password: z.string().min(1, "Password is required"),
       })
     ),
   });
