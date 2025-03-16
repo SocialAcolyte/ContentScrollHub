@@ -11,7 +11,7 @@ const getContentsSchema = z.object({
 
 // Check if user is authenticated
 function isAuthenticated(req: Request, res: Response, next: Function) {
-  if (req.isAuthenticated()) {
+  if (req.isAuthenticated && req.isAuthenticated()) {
     return next();
   }
   res.status(401).json({ error: "You must be logged in to perform this action" });
@@ -20,7 +20,7 @@ function isAuthenticated(req: Request, res: Response, next: Function) {
 export async function registerRoutes(app: Express): Promise<Server> {
   // Get current user
   app.get("/api/user", (req, res) => {
-    if (req.isAuthenticated()) {
+    if (req.isAuthenticated && req.isAuthenticated()) {
       res.json(req.user);
     } else {
       res.status(200).json(null);
@@ -43,10 +43,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Filter out hidden content for the current user
-      if (req.isAuthenticated() && req.user) {
+      if (req.isAuthenticated && req.isAuthenticated() && req.user) {
         const user = await storage.getUser(req.user.id);
         if (user && user.hiddenContent && Array.isArray(user.hiddenContent)) {
-          contents = contents.filter(content => !user.hiddenContent.includes(content.id));
+          contents = contents.filter(content => !user.hiddenContent!.includes(content.id));
         }
       }
 
@@ -117,9 +117,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Add content to user's liked content
-      await storage.addUserLikedContent(req.user.id, contentId);
-      
-      res.json({ success: true });
+      if (req.user && req.user.id) {
+        await storage.addUserLikedContent(req.user.id, contentId);
+        res.json({ success: true });
+      } else {
+        res.status(401).json({ error: "User not authenticated" });
+      }
     } catch (error) {
       console.error(`Error liking content ${req.params.contentId}:`, error);
       res.status(500).json({ 
@@ -138,9 +141,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Remove content from user's liked content
-      await storage.removeUserLikedContent(req.user.id, contentId);
-      
-      res.json({ success: true });
+      if (req.user && req.user.id) {
+        await storage.removeUserLikedContent(req.user.id, contentId);
+        res.json({ success: true });
+      } else {
+        res.status(401).json({ error: "User not authenticated" });
+      }
     } catch (error) {
       console.error(`Error unliking content ${req.params.contentId}:`, error);
       res.status(500).json({ 
@@ -164,9 +170,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Add content to user's hidden content
-      await storage.addUserHiddenContent(req.user.id, contentId);
-      
-      res.json({ success: true });
+      if (req.user && req.user.id) {
+        await storage.addUserHiddenContent(req.user.id, contentId);
+        res.json({ success: true });
+      } else {
+        res.status(401).json({ error: "User not authenticated" });
+      }
     } catch (error) {
       console.error(`Error hiding content ${req.params.contentId}:`, error);
       res.status(500).json({ 

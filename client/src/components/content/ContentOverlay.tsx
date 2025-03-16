@@ -77,12 +77,14 @@ export function ContentOverlay({ content, className }: ContentOverlayProps) {
         await apiRequest({
           url: `/api/user/like/${content.id}`,
           method: newLikedState ? 'POST' : 'DELETE',
+          data: {}
         });
         
         // Update the content's like count
         await apiRequest({
           url: `/api/contents/${content.id}/like`,
           method: newLikedState ? 'POST' : 'DELETE',
+          data: {}
         });
       } catch (error) {
         console.error('Error updating like status:', error);
@@ -141,6 +143,7 @@ export function ContentOverlay({ content, className }: ContentOverlayProps) {
           await apiRequest({
             url: `/api/contents/${content.id}/share`,
             method: 'POST',
+            data: {}
           });
         } catch (error) {
           console.error('Error updating share count:', error);
