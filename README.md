@@ -86,3 +86,4 @@ Your app will be deployed to a `<your-app>.replit.app` URL.
 - - improve account creation styling bug
 - Improve sharing and mobile functionality
 - Create advertisement serving logic
+- Improve Premium handling logic
