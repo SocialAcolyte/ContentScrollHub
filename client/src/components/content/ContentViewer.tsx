@@ -1,9 +1,11 @@
+import { useEffect, useRef, useState } from "react";
 import { useInfiniteQuery } from "@tanstack/react-query";
-import { useEffect, useRef } from "react";
 import { ContentCard } from "./ContentCard";
 import { AdPlaceholder } from "./AdPlaceholder";
 import { type ContentType } from "@/types/content";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useToast } from "@/hooks/use-toast";
+import { ArrowUpCircle, RefreshCw } from "lucide-react";
 
 type ContentViewerProps = {
   source?: string;
@@ -12,6 +14,9 @@ type ContentViewerProps = {
 export function ContentViewer({ source }: ContentViewerProps) {
   const observerRef = useRef<IntersectionObserver>();
   const loadMoreRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const [showScrollTop, setShowScrollTop] = useState(false);
+  const { toast } = useToast();
 
   const { 
     data,
@@ -19,7 +24,8 @@ export function ContentViewer({ source }: ContentViewerProps) {
     hasNextPage,
     isLoading,
     isError,
-    error
+    error,
+    refetch
   } = useInfiniteQuery({
     queryKey: ["/api/contents", source],
     initialPageParam: 1,
@@ -61,6 +67,41 @@ export function ContentViewer({ source }: ContentViewerProps) {
     };
   }, [fetchNextPage, hasNextPage]);
 
+  // Scroll top visibility logic
+  useEffect(() => {
+    const handleScroll = () => {
+      if (!scrollContainerRef.current) return;
+      
+      const scrollY = scrollContainerRef.current.scrollTop;
+      setShowScrollTop(scrollY > window.innerHeight * 1.5);
+    };
+    
+    const container = scrollContainerRef.current;
+    if (container) {
+      container.addEventListener('scroll', handleScroll);
+      return () => {
+        container.removeEventListener('scroll', handleScroll);
+      };
+    }
+  }, []);
+
+  const handleScrollToTop = () => {
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTo({
+        top: 0,
+        behavior: 'smooth'
+      });
+    }
+  };
+
+  const handleRefresh = async () => {
+    await refetch();
+    toast({
+      title: "Content refreshed",
+      description: `Fresh content from ${source || 'all sources'} loaded`,
+    });
+  };
+
   if (isLoading) {
     return (
       <div className="h-screen w-screen">
@@ -85,25 +126,64 @@ export function ContentViewer({ source }: ContentViewerProps) {
     );
   }
 
-  return (
-    <div className="h-screen w-screen overflow-y-auto snap-y snap-mandatory">
-      {data.pages.map((page, pageIndex) => (
-        <div key={pageIndex}>
-          {page.map((content: ContentType, index: number) => (
-            <>
-              <div key={content.id} className="snap-start h-screen w-screen">
-                <ContentCard content={content} />
-              </div>
-              {(index + 1) % 5 === 0 && (
-                <AdPlaceholder 
-                  position={index} 
-                  sourceType={content.contentType}
-                />
-              )}
-            </>
-          ))}
+  // Create a flattened array of content items mixed with ads
+  const contentItems: JSX.Element[] = [];
+  
+  data.pages.forEach((page, pageIndex) => {
+    page.forEach((content: ContentType, index: number) => {
+      // Add content card
+      contentItems.push(
+        <div 
+          key={`content-${content.id}-${pageIndex}-${index}`} 
+          className="snap-start h-screen w-screen"
+        >
+          <ContentCard content={content} />
         </div>
-      ))}
+      );
+      
+      // Add advertisement after every 5th item
+      if ((index + 1) % 5 === 0) {
+        contentItems.push(
+          <div 
+            key={`ad-${content.id}-${pageIndex}-${index}`} 
+            className="snap-start h-screen w-screen"
+          >
+            <AdPlaceholder 
+              position={index} 
+              sourceType={content.contentType}
+            />
+          </div>
+        );
+      }
+    });
+  });
+
+  return (
+    <div 
+      ref={scrollContainerRef}
+      className="h-screen w-screen overflow-y-auto snap-y snap-mandatory"
+    >
+      {/* Refresh button */}
+      <button 
+        onClick={handleRefresh}
+        className="fixed top-20 right-4 z-50 bg-primary/80 hover:bg-primary text-white p-2 rounded-full shadow-lg"
+        aria-label="Refresh content"
+      >
+        <RefreshCw className="h-6 w-6" />
+      </button>
+      
+      {/* Scroll to top button */}
+      {showScrollTop && (
+        <button 
+          onClick={handleScrollToTop}
+          className="fixed bottom-20 right-4 z-50 bg-primary/80 hover:bg-primary text-white p-2 rounded-full shadow-lg"
+          aria-label="Scroll to top"
+        >
+          <ArrowUpCircle className="h-6 w-6" />
+        </button>
+      )}
+
+      {contentItems}
       <div ref={loadMoreRef} className="h-4" />
     </div>
   );
