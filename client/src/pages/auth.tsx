@@ -33,11 +33,7 @@ export default function AuthPage() {
       username: "",
       password: "",
     },
-    resolver: zodResolver(z.object({
-      username: z.string().min(1, "Username is required"),
-      password: z.string().min(1, "Password is required"),
-      })
-    ),
+    resolver: zodResolver(insertUserSchema),
   });
 
   const registerForm = useForm({
