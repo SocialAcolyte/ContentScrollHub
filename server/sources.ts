@@ -1,20 +1,9 @@
 import axios from "axios";
 import type { InsertContent } from "@shared/schema";
 
-interface WikipediaResponse {
-  query: {
-    pages: Record<string, {
-      pageid: number;
-      title: string;
-      extract: string;
-      thumbnail?: { source: string };
-    }>;
-  };
-}
-
 export async function fetchWikipediaContent(): Promise<InsertContent[]> {
   try {
-    const response = await axios.get<WikipediaResponse>(
+    const response = await axios.get(
       "https://en.wikipedia.org/w/api.php",
       {
         params: {
@@ -86,30 +75,32 @@ export async function fetchBlogContent(): Promise<InsertContent[]> {
 
 export async function fetchBookContent(): Promise<InsertContent[]> {
   try {
-    // Using Project Gutenberg's catalog
+    // Using OpenLibrary API
+    const subjects = ['science', 'programming', 'technology', 'fiction'];
+    const randomSubject = subjects[Math.floor(Math.random() * subjects.length)];
+
     const response = await axios.get(
-      "https://gutendex.com/books",
+      `https://openlibrary.org/subjects/${randomSubject}.json`,
       {
         params: {
-          mime_type: "text/plain",
-          languages: "en"
+          limit: 10
         }
       }
     );
 
-    return response.data.results.map((book: any) => ({
-      sourceId: String(book.id),
+    return response.data.works.map((work: any) => ({
+      sourceId: work.key,
       source: "books",
       contentType: "book",
-      title: book.title,
-      excerpt: `${book.authors[0]?.name || 'Unknown Author'} - ${book.subjects.slice(0, 3).join(', ')}`,
-      thumbnail: book.formats["image/jpeg"],
+      title: work.title,
+      excerpt: work.authors?.map((a: any) => a.name).join(', '),
+      thumbnail: work.cover_id ? `https://covers.openlibrary.org/b/id/${work.cover_id}-L.jpg` : null,
       metadata: {
-        author: book.authors[0]?.name,
-        languages: book.languages,
-        subjects: book.subjects
+        authors: work.authors,
+        firstPublishYear: work.first_publish_year,
+        subjects: work.subject
       },
-      url: book.formats["text/plain"]
+      url: `https://openlibrary.org${work.key}`
     }));
   } catch (error) {
     console.error("Error fetching book content:", error);
@@ -119,25 +110,23 @@ export async function fetchBookContent(): Promise<InsertContent[]> {
 
 export async function fetchTextbookContent(): Promise<InsertContent[]> {
   try {
-    const response = await axios.get(
-      "https://openstax.org/api/v2/pages",
-      {
-        params: {
-          type: "books.Book",
-          limit: 10
-        }
-      }
-    );
+    // Fetch OpenStax subjects first
+    const subjectsResponse = await axios.get("https://openstax.org/api/v2/subjects");
+    const subjects = subjectsResponse.data.items.filter((s: any) => s.books?.length > 0);
 
-    return response.data.items.map((book: any) => ({
+    // Get a random subject and its books
+    const randomSubject = subjects[Math.floor(Math.random() * subjects.length)];
+    const books = randomSubject.books || [];
+
+    return books.map((book: any) => ({
       sourceId: String(book.id),
       source: "textbooks",
       contentType: "textbook",
       title: book.title,
-      excerpt: book.description,
+      excerpt: `${randomSubject.name} - ${book.description || 'Open textbook'}`,
       thumbnail: book.cover_url,
       metadata: {
-        subjects: book.subjects,
+        subject: randomSubject.name,
         edition: book.edition,
         language: book.language
       },
@@ -145,6 +134,118 @@ export async function fetchTextbookContent(): Promise<InsertContent[]> {
     }));
   } catch (error) {
     console.error("Error fetching textbook content:", error);
+    return [];
+  }
+}
+
+export async function fetchGitHubContent(): Promise<InsertContent[]> {
+  try {
+    // Randomize search queries for variety
+    const topics = ['machine-learning', 'web-development', 'data-science', 'mobile-apps'];
+    const randomTopic = topics[Math.floor(Math.random() * topics.length)];
+
+    const response = await axios.get(
+      "https://api.github.com/search/repositories",
+      {
+        params: {
+          q: `topic:${randomTopic} stars:>1000`,
+          sort: "stars",
+          order: "desc",
+          per_page: 10
+        },
+        headers: {
+          Accept: "application/vnd.github.v3+json",
+          ...(process.env.GITHUB_TOKEN && {
+            Authorization: `token ${process.env.GITHUB_TOKEN}`
+          })
+        }
+      }
+    );
+
+    return response.data.items.map((repo: any) => ({
+      sourceId: String(repo.id),
+      source: "github",
+      contentType: "repository",
+      title: repo.full_name,
+      excerpt: repo.description,
+      thumbnail: repo.owner.avatar_url,
+      metadata: {
+        stars: repo.stargazers_count,
+        language: repo.language,
+        topics: repo.topics,
+        forks: repo.forks_count
+      },
+      url: repo.html_url
+    }));
+  } catch (error) {
+    console.error("Error fetching GitHub content:", error);
+    return [];
+  }
+}
+
+// Helper function to shuffle an array
+function shuffleArray<T>(array: T[]): T[] {
+  for (let i = array.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [array[i], array[j]] = [array[j], array[i]];
+  }
+  return array;
+}
+
+export async function fetchContent(source?: string): Promise<InsertContent[]> {
+  try {
+    let contents: InsertContent[] = [];
+
+    if (source) {
+      // Fetch from specific source with increased limit
+      switch (source) {
+        case "wikipedia":
+          contents = await fetchWikipediaContent();
+          break;
+        case "blogs":
+          contents = await fetchBlogContent();
+          break;
+        case "books":
+          contents = await fetchBookContent();
+          break;
+        case "textbooks":
+          contents = await fetchTextbookContent();
+          break;
+        case "github":
+          contents = await fetchGitHubContent();
+          break;
+      }
+    } else {
+      // Fetch from multiple sources in parallel and interleave results
+      const fetchPromises = [
+        fetchWikipediaContent(),
+        fetchBlogContent(),
+        fetchBookContent(),
+        fetchTextbookContent(),
+        fetchGitHubContent()
+      ];
+
+      const results = await Promise.all(fetchPromises);
+
+      // Interleave results from different sources
+      const maxLength = Math.max(...results.map(arr => arr.length));
+      contents = [];
+
+      for (let i = 0; i < maxLength; i++) {
+        for (let j = 0; j < results.length; j++) {
+          if (results[j][i]) {
+            contents.push(results[j][i]);
+          }
+        }
+      }
+
+      // Additional shuffle for more randomness
+      contents = shuffleArray(contents);
+    }
+
+    return contents;
+  } catch (error) {
+    console.error("Error fetching content:", error);
     return [];
   }
 }
@@ -214,86 +315,6 @@ export async function fetchArXivContent(): Promise<InsertContent[]> {
     }));
   } catch (error) {
     console.error("Error fetching arXiv content:", error);
-    return [];
-  }
-}
-
-export async function fetchGitHubContent(): Promise<InsertContent[]> {
-  try {
-    const response = await axios.get(
-      "https://api.github.com/search/repositories",
-      {
-        params: {
-          q: "stars:>1000",
-          sort: "stars",
-          order: "desc",
-          per_page: 10
-        },
-        headers: {
-          Accept: "application/vnd.github.v3+json",
-          // Add GitHub token if available
-          ...(process.env.GITHUB_TOKEN && {
-            Authorization: `token ${process.env.GITHUB_TOKEN}`
-          })
-        }
-      }
-    );
-
-    return response.data.items.map(repo => ({
-      sourceId: String(repo.id),
-      source: "github",
-      title: repo.full_name,
-      excerpt: repo.description,
-      thumbnail: repo.owner.avatar_url,
-      metadata: {
-        stars: repo.stargazers_count,
-        language: repo.language,
-        topics: repo.topics,
-        forks: repo.forks_count
-      },
-      url: repo.html_url
-    }));
-  } catch (error) {
-    console.error("Error fetching GitHub content:", error);
-    return [];
-  }
-}
-
-export async function fetchContent(source?: string): Promise<InsertContent[]> {
-  try {
-    let contents: InsertContent[] = [];
-
-    if (source) {
-      switch (source) {
-        case "wikipedia":
-          contents = await fetchWikipediaContent();
-          break;
-        case "blogs":
-          contents = await fetchBlogContent();
-          break;
-        case "books":
-          contents = await fetchBookContent();
-          break;
-        case "textbooks":
-          contents = await fetchTextbookContent();
-          break;
-      }
-    } else {
-      // If no source specified, fetch from all sources and shuffle
-      const results = await Promise.all([
-        fetchWikipediaContent(),
-        fetchBlogContent(),
-        fetchBookContent(),
-        fetchTextbookContent()
-      ]);
-
-      // Flatten and shuffle the results
-      contents = results.flat().sort(() => Math.random() - 0.5);
-    }
-
-    return contents;
-  } catch (error) {
-    console.error("Error fetching content:", error);
     return [];
   }
 }

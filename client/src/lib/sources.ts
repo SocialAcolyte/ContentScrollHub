@@ -1,4 +1,4 @@
-import { SiWikipedia, SiMedium } from "react-icons/si";
+import { SiWikipedia, SiMedium, SiGithub } from "react-icons/si";
 import { BookOpen, BookMarked } from "lucide-react";
 import { ContentType } from "@shared/schema";
 
@@ -26,5 +26,11 @@ export const sources = [
     name: "Textbooks",
     icon: BookMarked,
     contentType: ContentType.TEXTBOOK
+  },
+  {
+    id: "github",
+    name: "GitHub",
+    icon: SiGithub,
+    contentType: ContentType.REPOSITORY
   }
 ] as const;
