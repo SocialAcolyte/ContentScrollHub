@@ -35,6 +35,27 @@ async function fetchWithRetry<T>(fn: () => Promise<T>, retries = config.maxRetri
   }
 }
 
+async function getFallbackImage(title: string, type: string): Promise<string | null> {
+  try {
+    // Use Unsplash API with related search terms
+    const searchTerm = encodeURIComponent(`${title} ${type}`);
+    const response = await http.get(`https://source.unsplash.com/featured/800x600/?${searchTerm}`);
+    return response.request?.res?.responseUrl || null;
+  } catch (error) {
+    console.error('Failed to fetch fallback image:', error);
+    return null;
+  }
+}
+
+function ensureThumbnail(content: InsertContent): Promise<InsertContent> {
+  if (content.thumbnail) return Promise.resolve(content);
+  return getFallbackImage(content.title, content.contentType)
+    .then(fallbackImage => ({
+      ...content,
+      thumbnail: fallbackImage
+    }));
+}
+
 // Validate content item
 function isValidContentItem(item: InsertContent): boolean {
   return !!(
@@ -79,6 +100,12 @@ export async function fetchWikipediaContent(): Promise<InsertContent[]> {
         url: `https://en.wikipedia.org/wiki/${encodeURIComponent(page.title)}`,
       }))
       .filter(isValidContentItem);
+    
+    // Add fallback images where missing
+    const withImages = await Promise.all(
+      filtered.map(content => ensureThumbnail(content))
+    );
+    return withImages;
   } catch (error) {
     console.error("Wikipedia fetch error:", error);
     return [];
