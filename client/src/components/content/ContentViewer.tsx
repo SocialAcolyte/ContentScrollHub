@@ -41,7 +41,7 @@ export function ContentViewer({ source }: ContentViewerProps) {
         page: String(pageParam),
         ...(source && { source })
       });
-      const response = await fetch(`/api/contents?${params}`);
+      const response = await fetch(`${window.location.origin}/api/contents?${params}`);
       if (!response.ok) {
         throw new Error('Failed to fetch content');
       }
