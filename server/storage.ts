@@ -46,12 +46,23 @@ export class MemStorage implements IStorage {
     const pageSize = 10;
     const offset = (page - 1) * pageSize;
 
-    let query = db.select().from(contents);
-    if (source) {
-      query = query.where(eq(contents.source, source));
+    try {
+      if (source) {
+        return await db.select()
+          .from(contents)
+          .where(eq(contents.source, source))
+          .limit(pageSize)
+          .offset(offset);
+      } else {
+        return await db.select()
+          .from(contents)
+          .limit(pageSize)
+          .offset(offset);
+      }
+    } catch (error) {
+      console.error('Database error in getContents:', error);
+      return [];
     }
-
-    return await query.limit(pageSize).offset(offset);
   }
 
   async createContent(insertContent: InsertContent): Promise<Content> {
@@ -75,8 +86,24 @@ export class MemStorage implements IStorage {
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
-    const [user] = await db.insert(users).values(insertUser).returning();
-    return user;
+    try {
+      const result = await db.insert(users).values({
+        username: insertUser.username,
+        email: insertUser.email,
+        password: insertUser.password,
+        isPremium: insertUser.isPremium || false,
+        stripeCustomerId: insertUser.stripeCustomerId,
+        stripeSubscriptionId: insertUser.stripeSubscriptionId,
+        likedContent: insertUser.likedContent || [],
+        hiddenContent: insertUser.hiddenContent || [],
+        preferences: insertUser.preferences || {}
+      }).returning();
+      
+      return result[0];
+    } catch (error) {
+      console.error('Database error in createUser:', error);
+      throw new Error('Failed to create user');
+    }
   }
 
   async updateStripeCustomerId(userId: number, customerId: string): Promise<User> {
