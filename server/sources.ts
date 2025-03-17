@@ -88,7 +88,7 @@ export async function fetchWikipediaContent(): Promise<InsertContent[]> {
       })
     );
 
-    return Object.values(response.data.query.pages)
+    const filtered = Object.values(response.data.query.pages)
       .map((page: any) => ({
         sourceId: String(page.pageid),
         source: "wikipedia",
@@ -114,16 +114,16 @@ export async function fetchWikipediaContent(): Promise<InsertContent[]> {
 
 export async function fetchBlogContent(): Promise<InsertContent[]> {
   try {
+    // For public API access, we don't need an API key
     const response = await fetchWithRetry(() =>
       http.get("https://dev.to/api/articles", {
         timeout: config.timeout,
         params: {
           per_page: 15,
-          state: "fresh", // Get fresh content
+          state: "rising", // Get trending content without requiring auth
         },
         headers: {
           "Accept": "application/json",
-          "api-key": process.env.DEVTO_API_KEY, // Use env variable for API key
         },
       })
     );
@@ -283,16 +283,28 @@ export async function fetchContent(source?: string): Promise<InsertContent[]> {
         textbooks: fetchTextbookContent,
         arxiv: fetchArXivContent,
       };
-      return (fetchers[source] || (async () => []))();
+      
+      // Check if the requested source exists
+      if (!fetchers[source]) {
+        console.warn(`Source "${source}" not found in available fetchers`);
+        return [];
+      }
+      
+      return fetchers[source]();
     }
 
-    const results = await Promise.allSettled([
-      fetchWikipediaContent(),
-      fetchBlogContent(),
-      fetchBookContent(),
-      fetchTextbookContent(),
-      fetchArXivContent(),
-    ]);
+    // Use public APIs that don't require keys for deployment
+    const fetchersToUse = [
+      fetchWikipediaContent,
+      fetchBlogContent,
+      fetchBookContent,
+      fetchTextbookContent,
+      fetchArXivContent,
+    ];
+
+    const results = await Promise.allSettled(
+      fetchersToUse.map(fetcher => fetcher())
+    );
 
     const contents = results
       .filter(result => result.status === "fulfilled")
