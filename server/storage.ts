@@ -30,19 +30,24 @@ export interface IStorage {
 }
 
 export class MemStorage implements IStorage {
-  private contents: Map<number, Content>;
-  private users: Map<number, User>;
-  private usersByUsername: Map<string, User>;
+  private db: any;
   sessionStore: session.Store;
-  currentId: number;
-  currentUserId: number;
-
+  
   constructor() {
-    this.contents = new Map();
-    this.users = new Map();
-    this.usersByUsername = new Map();
-    this.currentId = 1;
-    this.currentUserId = 1;
+    // Initialize Replit DB
+    import('node:process').then(process => {
+      import('@replit/database').then(replitDB => {
+        this.db = new replitDB.default(process.env.REPLIT_DB_URL);
+        // Initialize counters if they don't exist
+        this.db.get('currentId').then((val: number) => {
+          if (!val) this.db.set('currentId', 1);
+        });
+        this.db.get('currentUserId').then((val: number) => {
+          if (!val) this.db.set('currentUserId', 1);
+        });
+      });
+    });
+    
     this.sessionStore = new MemoryStore({
       checkPeriod: 86400000 // prune expired entries every 24h
     });
@@ -58,16 +63,23 @@ export class MemStorage implements IStorage {
   async getContents(page: number, source?: string): Promise<Content[]> {
     const pageSize = 10;
     const start = (page - 1) * pageSize;
-    let contentList = Array.from(this.contents.values());
-
+    
+    // Get all content keys
+    const contentKeys = await this.db.list('content_');
+    const contents = await Promise.all(
+      contentKeys.map(key => this.db.get(key))
+    );
+    
+    let contentList = contents.filter(Boolean);
+    
     if (source) {
       contentList = contentList.filter(content => content.source === source);
     }
 
     // Sort by most recent first
     contentList.sort((a, b) => {
-      const dateA = a.fetchedAt instanceof Date ? a.fetchedAt : new Date(a.fetchedAt || 0);
-      const dateB = b.fetchedAt instanceof Date ? b.fetchedAt : new Date(b.fetchedAt || 0);
+      const dateA = new Date(a.fetchedAt || 0);
+      const dateB = new Date(b.fetchedAt || 0);
       return dateB.getTime() - dateA.getTime();
     });
 
