@@ -2,7 +2,8 @@ import { contents, users, type Content, type InsertContent, type User, type Inse
 import session from "express-session";
 import createMemoryStore from "memorystore";
 import { drizzle } from 'drizzle-orm/node-postgres';
-import { Pool } from 'pg';
+import pkg from 'pg';
+const { Pool } = pkg;
 import { eq, sql } from 'drizzle-orm';
 
 const MemoryStore = createMemoryStore(session);
