@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useLocation } from "wouter";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, ExternalLink, X } from "lucide-react";
@@ -41,9 +42,9 @@ const sampleAds: Advertisement[] = [
   {
     id: "ad3",
     title: "Advanced Learning Materials",
-    description: "Access educational content from world-class institutions.",
-    cta: "Start Learning",
-    url: "#education",
+    description: "Ready to showcase your brand? Advertise with us and reach our engaged audience.",
+    cta: "Become an Advertiser",
+    url: "/advertiser-signup",
     category: "education"
   }
 ];
@@ -56,6 +57,7 @@ type AdPlaceholderProps = {
 export function AdPlaceholder({ position, sourceType }: AdPlaceholderProps) {
   const { user } = useAuth();
   const isMobile = useIsMobile();
+  const [, setLocation] = useLocation();
   const [adType, setAdType] = useState<string>("general");
   const [currentAd, setCurrentAd] = useState<Advertisement | null>(null);
   const [dismissed, setDismissed] = useState(false);
@@ -157,7 +159,14 @@ export function AdPlaceholder({ position, sourceType }: AdPlaceholderProps) {
         <div className="flex justify-between items-center">
           <Button 
             variant="default" 
-            onClick={() => window.open(currentAd.url, "_blank")}
+            onClick={() => {
+              // Use wouter navigation for internal routes, open external URLs in new tab
+              if (currentAd.url.startsWith('/')) {
+                setLocation(currentAd.url);
+              } else {
+                window.open(currentAd.url, "_blank");
+              }
+            }}
             className="bg-primary hover:bg-primary/90 text-primary-foreground"
           >
             {currentAd.cta}
