@@ -99,7 +99,7 @@ export default function AdvertiserSignup() {
 
   function onSubmit(data: FormValues) {
     console.log("Form submitted:", data);
-    
+
     // In a real application, this would send the data to the server
     // Here we're just showing a success message
     setStep("success");
@@ -145,13 +145,13 @@ export default function AdvertiserSignup() {
                             <FormItem>
                               <FormLabel>Company Name</FormLabel>
                               <FormControl>
-                                <Input placeholder="Your company name" {...field} className="bg-black/30" />
+                                <Input placeholder="Your company name" {...field} className="bg-black/30 text-white placeholder:text-gray-400" />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
                           )}
                         />
-                        
+
                         <FormField
                           control={form.control}
                           name="contactName"
@@ -159,7 +159,7 @@ export default function AdvertiserSignup() {
                             <FormItem>
                               <FormLabel>Contact Name</FormLabel>
                               <FormControl>
-                                <Input placeholder="Your full name" {...field} className="bg-black/30" />
+                                <Input placeholder="Your full name" {...field} className="bg-black/30 text-white placeholder:text-gray-400" />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
@@ -175,13 +175,13 @@ export default function AdvertiserSignup() {
                             <FormItem>
                               <FormLabel>Email Address</FormLabel>
                               <FormControl>
-                                <Input placeholder="your.email@company.com" {...field} className="bg-black/30" />
+                                <Input placeholder="your.email@company.com" {...field} className="bg-black/30 text-white placeholder:text-gray-400" />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
                           )}
                         />
-                        
+
                         <FormField
                           control={form.control}
                           name="phone"
@@ -189,7 +189,7 @@ export default function AdvertiserSignup() {
                             <FormItem>
                               <FormLabel>Phone Number</FormLabel>
                               <FormControl>
-                                <Input placeholder="+1 (555) 000-0000" {...field} className="bg-black/30" />
+                                <Input placeholder="+1 (555) 000-0000" {...field} className="bg-black/30 text-white placeholder:text-gray-400" />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
@@ -205,7 +205,7 @@ export default function AdvertiserSignup() {
                             <FormLabel>Industry</FormLabel>
                             <Select onValueChange={field.onChange} defaultValue={field.value}>
                               <FormControl>
-                                <SelectTrigger className="bg-black/30">
+                                <SelectTrigger className="bg-black/30 text-white placeholder:text-gray-400">
                                   <SelectValue placeholder="Select your industry" />
                                 </SelectTrigger>
                               </FormControl>
@@ -232,7 +232,7 @@ export default function AdvertiserSignup() {
                             <FormLabel>Monthly Advertising Budget</FormLabel>
                             <Select onValueChange={field.onChange} defaultValue={field.value}>
                               <FormControl>
-                                <SelectTrigger className="bg-black/30">
+                                <SelectTrigger className="bg-black/30 text-white placeholder:text-gray-400">
                                   <SelectValue placeholder="Select your budget range" />
                                 </SelectTrigger>
                               </FormControl>
@@ -300,7 +300,7 @@ export default function AdvertiserSignup() {
                             <FormControl>
                               <Textarea 
                                 placeholder="Tell us more about your advertising goals and target audience"
-                                className="min-h-[120px] bg-black/30"
+                                className="min-h-[120px] bg-black/30 text-white placeholder:text-gray-400"
                                 {...field}
                               />
                             </FormControl>
@@ -331,7 +331,7 @@ export default function AdvertiserSignup() {
                       <p className="text-sm text-gray-400">Over 2 million monthly active users exploring educational content</p>
                     </div>
                   </div>
-                  
+
                   <div className="flex items-start gap-3">
                     <BarChart className="h-5 w-5 text-primary mt-1" />
                     <div>
@@ -339,7 +339,7 @@ export default function AdvertiserSignup() {
                       <p className="text-sm text-gray-400">Target specific content categories and user interests</p>
                     </div>
                   </div>
-                  
+
                   <div className="flex items-start gap-3">
                     <DollarSign className="h-5 w-5 text-primary mt-1" />
                     <div>
