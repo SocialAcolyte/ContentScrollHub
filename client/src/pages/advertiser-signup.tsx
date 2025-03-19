@@ -239,8 +239,8 @@ export default function AdvertiserSignup() {
                               <SelectContent>
                                 <SelectItem value="starter">$99 - $499</SelectItem>
                                 <SelectItem value="growing">$500 - $1,999</SelectItem>
-                                <SelectItem value="established">$2,000 - $4,999</SelectItem>
-                                <SelectItem value="enterprise">$5,000+</SelectItem>
+                                <SelectItem value="established">$2,000 - $9,999</SelectItem>
+                                <SelectItem value="enterprise">$10,000+</SelectItem>
                               </SelectContent>
                             </Select>
                             <FormMessage />
