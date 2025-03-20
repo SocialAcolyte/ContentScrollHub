@@ -274,6 +274,49 @@ export function ContentViewer({ source }: ContentViewerProps) {
         </div>
       )}
       
+      {/* Search toggle button */}
+      <Button 
+        onClick={handleSearchToggle}
+        className="fixed top-20 left-4 z-50 bg-black/50 hover:bg-black/80 text-white p-2 h-10 w-10 rounded-full shadow-lg"
+        size="icon"
+        variant="outline"
+        aria-label={showSearch ? "Close search" : "Search content"}
+      >
+        {showSearch ? (
+          <X className="h-5 w-5" />
+        ) : (
+          <Search className="h-5 w-5" />
+        )}
+      </Button>
+      
+      {/* Search bar (shown when search is toggled) */}
+      {showSearch && (
+        <div className="fixed top-20 left-16 right-16 z-50 animate-in fade-in slide-in-from-top-4 duration-300">
+          <SearchBar 
+            onSearch={handleSearch} 
+            initialValue={searchQuery}
+            placeholder={`Search ${source || 'all content'}...`}
+            className="w-full bg-black/80 backdrop-blur-md text-white border-gray-700 rounded-full shadow-lg"
+          />
+          {searchQuery && (
+            <div className="mt-2 px-4 py-2 rounded-lg bg-black/80 backdrop-blur-md text-white text-sm">
+              Showing results for: <span className="font-semibold">{searchQuery}</span>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="ml-2 h-6 hover:bg-white/10"
+                onClick={() => {
+                  setSearchQuery("");
+                  refetch();
+                }}
+              >
+                Clear
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
+      
       {/* Refresh button */}
       <Button 
         onClick={handleRefresh}
