@@ -18,6 +18,7 @@ export interface IStorage {
   getContents(page: number, source?: string): Promise<Content[]>;
   createContent(content: InsertContent): Promise<Content>;
   getContent(id: number): Promise<Content | undefined>;
+  getStoredContentIds(source?: string): Promise<{ id: number, sourceId: string, source: string }[]>;
   getUser(id: number): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
@@ -73,6 +74,30 @@ export class MemStorage implements IStorage {
   async getContent(id: number): Promise<Content | undefined> {
     const [content] = await db.select().from(contents).where(eq(contents.id, id));
     return content;
+  }
+  
+  async getStoredContentIds(source?: string): Promise<{ id: number, sourceId: string, source: string }[]> {
+    try {
+      if (source) {
+        return await db.select({
+          id: contents.id,
+          sourceId: contents.sourceId,
+          source: contents.source
+        })
+        .from(contents)
+        .where(eq(contents.source, source));
+      } else {
+        return await db.select({
+          id: contents.id,
+          sourceId: contents.sourceId,
+          source: contents.source
+        })
+        .from(contents);
+      }
+    } catch (error) {
+      console.error('Database error in getStoredContentIds:', error);
+      return [];
+    }
   }
 
   async getUser(id: number): Promise<User | undefined> {

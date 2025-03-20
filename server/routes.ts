@@ -1,4 +1,4 @@
-import type { Express, Request, Response } from "express";
+import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { z } from "zod";
@@ -6,7 +6,8 @@ import { fetchContent } from "./sources";
 
 const getContentsSchema = z.object({
   page: z.string().transform(Number),
-  source: z.string().optional()
+  source: z.string().optional(),
+  search: z.string().optional()
 });
 
 // Check if user is authenticated
@@ -30,18 +31,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Content fetching endpoint
   app.get("/api/contents", async (req, res) => {
     try {
-      const { page, source } = getContentsSchema.parse(req.query);
-      let contents = await storage.getContents(page, source);
-
-      // If no contents or first page, fetch from sources
-      if (contents.length === 0 && page === 1) {
-        const newContents = await fetchContent(source);
-        for (const content of newContents) {
-          await storage.createContent(content);
+      const { page, source, search } = getContentsSchema.parse(req.query);
+      
+      // Always fetch new content for search queries or if page 1 (always fresh content)
+      if (search || page === 1) {
+        const newContents = await fetchContent(source, search);
+        
+        // Only filter liked/stored content if we have an authenticated user
+        if (req.isAuthenticated && req.isAuthenticated() && req.user) {
+          const user = await storage.getUser(req.user.id);
+          
+          if (user && user.hiddenContent && Array.isArray(user.hiddenContent)) {
+            // Get already stored content IDs to filter them out
+            const storedContentIds = await storage.getStoredContentIds(source);
+            
+            // Filter the content that is liked/reported but hidden by user
+            return res.json(newContents.filter(content => {
+              // Check if the content is in the database (has an ID)
+              const storedContent = storedContentIds.find(
+                sc => sc.sourceId === content.sourceId && sc.source === content.source
+              );
+              
+              // Keep the content if it's not in the hidden list
+              return !storedContent || !user.hiddenContent!.includes(storedContent.id);
+            }));
+          }
+          
+          // No hidden content, just return the new content
+          return res.json(newContents);
         }
-        contents = await storage.getContents(page, source);
+        
+        // No authenticated user, just return the new content
+        return res.json(newContents);
       }
-
+      
+      // For pagination (page > 1), get stored content
+      let contents = await storage.getContents(page, source);
+      
       // Filter out hidden content for the current user
       if (req.isAuthenticated && req.isAuthenticated() && req.user) {
         const user = await storage.getUser(req.user.id);
@@ -111,15 +137,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Invalid content ID" });
       }
       
-      const content = await storage.getContent(contentId);
-      if (!content) {
+      // Check if content exists in DB
+      let content = await storage.getContent(contentId);
+      
+      // If content doesn't exist in DB but raw content data is provided in the request body
+      // (Handling ephemeral content that hasn't been stored yet)
+      if (!content && req.body && req.body.content) {
+        // Store the content since the user is liking it
+        content = await storage.createContent(req.body.content);
+      } else if (!content) {
         return res.status(404).json({ error: "Content not found" });
       }
       
       // Add content to user's liked content
       if (req.user && req.user.id) {
-        await storage.addUserLikedContent(req.user.id, contentId);
-        res.json({ success: true });
+        await storage.addUserLikedContent(req.user.id, content.id);
+        res.json({ success: true, contentId: content.id });
       } else {
         res.status(401).json({ error: "User not authenticated" });
       }
