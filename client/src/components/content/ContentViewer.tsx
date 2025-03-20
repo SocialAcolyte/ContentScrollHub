@@ -2,11 +2,12 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { ContentCard } from "./ContentCard";
 import { AdPlaceholder } from "./AdPlaceholder";
+import { SearchBar } from "./SearchBar";
 import { type ContentType } from "@/types/content";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowUpCircle, RefreshCw, RotateCcw, Loader2, ChevronDown } from "lucide-react";
+import { ArrowUpCircle, RefreshCw, RotateCcw, Loader2, ChevronDown, Search, X } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 
 type ContentViewerProps = {
@@ -22,6 +23,8 @@ export function ContentViewer({ source }: ContentViewerProps) {
   const [touchStartY, setTouchStartY] = useState(0);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isSwipeRefreshing, setIsSwipeRefreshing] = useState(false);
+  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [showSearch, setShowSearch] = useState(false);
   const isMobile = useIsMobile();
   const { toast } = useToast();
 
@@ -34,12 +37,13 @@ export function ContentViewer({ source }: ContentViewerProps) {
     error,
     refetch
   } = useInfiniteQuery({
-    queryKey: ["/api/contents", source],
+    queryKey: ["/api/contents", source, searchQuery],
     initialPageParam: 1,
     queryFn: async ({ pageParam }) => {
       const params = new URLSearchParams({
         page: String(pageParam),
-        ...(source && { source })
+        ...(source && { source }),
+        ...(searchQuery && { search: searchQuery })
       });
       const response = await fetch(`${window.location.origin}/api/contents?${params}`);
       if (!response.ok) {
@@ -151,6 +155,25 @@ export function ContentViewer({ source }: ContentViewerProps) {
       setIsRefreshing(false);
     }
   }, [refetch, source, toast]);
+  
+  // Search handlers
+  const handleSearchToggle = useCallback(() => {
+    setShowSearch(prev => !prev);
+    if (showSearch && searchQuery) {
+      setSearchQuery("");
+      refetch();
+    }
+  }, [showSearch, searchQuery, refetch]);
+  
+  const handleSearch = useCallback((query: string) => {
+    setSearchQuery(query);
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTo({
+        top: 0,
+        behavior: 'auto'
+      });
+    }
+  }, []);
 
   // Loading state
   if (isLoading) {

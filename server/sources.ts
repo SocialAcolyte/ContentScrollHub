@@ -390,10 +390,10 @@ function shuffleArray<T>(array: T[]): T[] {
   return array.sort(() => Math.random() - 0.5);
 }
 
-export async function fetchContent(source?: string): Promise<InsertContent[]> {
+export async function fetchContent(source?: string, search?: string): Promise<InsertContent[]> {
   try {
     if (source) {
-      const fetchers: Record<string, () => Promise<InsertContent[]>> = {
+      const fetchers: Record<string, (search?: string) => Promise<InsertContent[]>> = {
         wikipedia: fetchWikipediaContent,
         blogs: fetchBlogContent,
         books: fetchBookContent,
@@ -407,10 +407,30 @@ export async function fetchContent(source?: string): Promise<InsertContent[]> {
         return [];
       }
       
-      return fetchers[source]();
+      return fetchers[source](search);
     }
 
-    // Use public APIs that don't require keys for deployment
+    // If no source is provided but search is, search across all sources
+    if (search) {
+      const fetchersToUse = [
+        fetchWikipediaContent,
+        fetchBlogContent,
+        fetchBookContent,
+        fetchArXivContent,
+      ];
+
+      const results = await Promise.allSettled(
+        fetchersToUse.map(fetcher => fetcher(search))
+      );
+
+      const contents = results
+        .filter(result => result.status === "fulfilled")
+        .flatMap(result => (result as PromiseFulfilledResult<InsertContent[]>).value);
+
+      return shuffleArray(contents).slice(0, 60); // Increased limit for search results
+    }
+
+    // No search, no specific source - get mixed content
     const fetchersToUse = [
       fetchWikipediaContent,
       fetchBlogContent,
