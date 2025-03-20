@@ -66,40 +66,99 @@ function isValidContentItem(item: InsertContent): boolean {
   );
 }
 
-export async function fetchWikipediaContent(): Promise<InsertContent[]> {
+export async function fetchWikipediaContent(search?: string): Promise<InsertContent[]> {
   try {
-    const response = await fetchWithRetry(() =>
-      http.get("https://en.wikipedia.org/w/api.php", {
-        timeout: config.timeout,
-        params: {
+    // Different API params based on whether we're searching or getting random articles
+    const params = search 
+      ? {
+          action: "query",
+          format: "json",
+          prop: "extracts|pageimages",
+          list: "search",
+          srsearch: search,
+          srlimit: 20,
+          srnamespace: 0,
+          exchars: 500,
+          exlimit: 20,
+          explaintext: true,
+          piprop: "thumbnail",
+          pithumbsize: 500,
+          origin: "*",
+        }
+      : {
           action: "query",
           format: "json",
           prop: "extracts|pageimages",
           generator: "random",
           grnnamespace: 0,
           grnlimit: 15,
-          exchars: 500, // Increased for better excerpts
+          exchars: 500,
           exlimit: 15,
           explaintext: true,
           piprop: "thumbnail",
           pithumbsize: 500,
           origin: "*",
-        },
+        };
+
+    const response = await fetchWithRetry(() =>
+      http.get("https://en.wikipedia.org/w/api.php", {
+        timeout: config.timeout,
+        params,
       })
     );
 
-    const filtered = Object.values(response.data.query.pages)
-      .map((page: any) => ({
-        sourceId: String(page.pageid),
-        source: "wikipedia",
-        contentType: "article",
-        title: page.title?.trim(),
-        excerpt: page.extract?.trim(),
-        thumbnail: page.thumbnail?.source,
-        metadata: { pageid: page.pageid },
-        url: `https://en.wikipedia.org/wiki/${encodeURIComponent(page.title)}`,
-      }))
-      .filter(isValidContentItem);
+    // Handle different response structures for search vs random
+    let filtered = [];
+    
+    if (search && response.data.query?.search) {
+      // Process search results which have a different structure
+      const pageIds = response.data.query.search.map((result: any) => result.pageid).join('|');
+      
+      // We need to fetch the full page data for these search results
+      const detailsResponse = await fetchWithRetry(() =>
+        http.get("https://en.wikipedia.org/w/api.php", {
+          timeout: config.timeout,
+          params: {
+            action: "query",
+            format: "json",
+            prop: "extracts|pageimages",
+            pageids: pageIds,
+            exchars: 500,
+            explaintext: true,
+            piprop: "thumbnail",
+            pithumbsize: 500,
+            origin: "*",
+          },
+        })
+      );
+      
+      filtered = Object.values(detailsResponse.data.query.pages)
+        .map((page: any) => ({
+          sourceId: String(page.pageid),
+          source: "wikipedia",
+          contentType: "article",
+          title: page.title?.trim(),
+          excerpt: page.extract?.trim(),
+          thumbnail: page.thumbnail?.source,
+          metadata: { pageid: page.pageid, searchTerm: search },
+          url: `https://en.wikipedia.org/wiki/${encodeURIComponent(page.title)}`,
+        }))
+        .filter(isValidContentItem);
+    } else {
+      // Process random pages
+      filtered = Object.values(response.data.query.pages)
+        .map((page: any) => ({
+          sourceId: String(page.pageid),
+          source: "wikipedia",
+          contentType: "article",
+          title: page.title?.trim(),
+          excerpt: page.extract?.trim(),
+          thumbnail: page.thumbnail?.source,
+          metadata: { pageid: page.pageid },
+          url: `https://en.wikipedia.org/wiki/${encodeURIComponent(page.title)}`,
+        }))
+        .filter(isValidContentItem);
+    }
     
     // Add fallback images where missing
     const withImages = await Promise.all(
@@ -112,16 +171,24 @@ export async function fetchWikipediaContent(): Promise<InsertContent[]> {
   }
 }
 
-export async function fetchBlogContent(): Promise<InsertContent[]> {
+export async function fetchBlogContent(search?: string): Promise<InsertContent[]> {
   try {
-    // For public API access, we don't need an API key
+    // If search query provided, search for articles
+    // Otherwise, get trending articles
+    const params = search
+      ? {
+          per_page: 20,
+          tag: search // DEV.to API supports tag searching 
+        }
+      : {
+          per_page: 15,
+          state: "rising", // Get trending content without requiring auth
+        };
+    
     const response = await fetchWithRetry(() =>
       http.get("https://dev.to/api/articles", {
         timeout: config.timeout,
-        params: {
-          per_page: 15,
-          state: "rising", // Get trending content without requiring auth
-        },
+        params,
         headers: {
           "Accept": "application/json",
         },
@@ -150,31 +217,69 @@ export async function fetchBlogContent(): Promise<InsertContent[]> {
   }
 }
 
-export async function fetchBookContent(): Promise<InsertContent[]> {
+export async function fetchBookContent(search?: string): Promise<InsertContent[]> {
   try {
-    const subjects = ["science", "programming", "technology", "fiction"];
-    const randomSubject = subjects[Math.floor(Math.random() * subjects.length)];
+    // If search term is provided, search for books by query
+    // Otherwise, get random books by subject
+    const url = search 
+      ? `https://openlibrary.org/search.json`
+      : `https://openlibrary.org/subjects/${
+          ["science", "programming", "technology", "fiction"][
+            Math.floor(Math.random() * 4)
+          ]
+        }.json`;
+
+    const params = search
+      ? {
+          q: search,
+          limit: 20,
+          fields: "key,title,author_name,cover_i,first_publish_year,subject"
+        }
+      : {
+          limit: 15,
+          details: true
+        };
 
     const response = await fetchWithRetry(() =>
-      http.get(`https://openlibrary.org/subjects/${randomSubject}.json`, {
+      http.get(url, {
         timeout: config.timeout,
-        params: {
-          limit: 15,
-          details: true, // Get more detailed results
-        },
+        params,
       })
     );
 
-    return response.data.works
-      .map((work: any) => ({
+    // Handle different response structures for search vs browsing
+    let books = [];
+    
+    if (search && response.data.docs) {
+      // Process search results
+      books = response.data.docs.map((doc: any) => ({
+        sourceId: doc.key,
+        source: "books",
+        contentType: "book",
+        title: doc.title?.trim(),
+        excerpt: doc.author_name ? `By ${doc.author_name.join(", ")}` : 
+                doc.first_sentence ? doc.first_sentence[0] : null,
+        thumbnail: doc.cover_i 
+          ? `https://covers.openlibrary.org/b/id/${doc.cover_i}-L.jpg`
+          : null,
+        metadata: {
+          authors: doc.author_name,
+          firstPublishYear: doc.first_publish_year,
+          subjects: doc.subject,
+          searchTerm: search
+        },
+        url: `https://openlibrary.org${doc.key}`,
+      }));
+    } else if (response.data.works) {
+      // Process subject browsing
+      books = response.data.works.map((work: any) => ({
         sourceId: work.key,
         source: "books",
         contentType: "book",
         title: work.title?.trim(),
-        excerpt:
-          work.description?.value ||
-          work.authors?.map((a: any) => a.name).join(", ") ||
-          work.subtitle,
+        excerpt: work.description?.value ||
+                work.authors?.map((a: any) => a.name).join(", ") ||
+                work.subtitle,
         thumbnail: work.cover_id
           ? `https://covers.openlibrary.org/b/id/${work.cover_id}-L.jpg`
           : null,
@@ -184,7 +289,10 @@ export async function fetchBookContent(): Promise<InsertContent[]> {
           subjects: work.subjects || work.subject,
         },
         url: `https://openlibrary.org${work.key}`,
-      }))
+      }));
+    }
+    
+    return books
       .filter(isValidContentItem);
   } catch (error) {
     console.error("Book fetch error:", error);
@@ -226,18 +334,27 @@ export async function fetchTextbookContent(): Promise<InsertContent[]> {
   }
 }
 
-export async function fetchArXivContent(): Promise<InsertContent[]> {
+export async function fetchArXivContent(search?: string): Promise<InsertContent[]> {
   try {
-    const response = await fetchWithRetry(() =>
-      http.get("http://export.arxiv.org/api/query", {
-        timeout: config.timeout,
-        params: {
+    const params = search
+      ? {
+          search_query: `all:${search}`,
+          start: 0,
+          max_results: 20,
+          sortBy: "relevance"
+        }
+      : {
           search_query: "cat:cs.AI OR cat:cs.LG OR cat:cs.CV",
           start: 0,
           max_results: 15,
           sortBy: "lastUpdatedDate",
           sortOrder: "descending",
-        },
+        };
+
+    const response = await fetchWithRetry(() =>
+      http.get("http://export.arxiv.org/api/query", {
+        timeout: config.timeout,
+        params,
       })
     );
 
